@@ -309,6 +309,15 @@ app.include_router(app_configs.router, prefix=_prefix)
 
 # ── Health check ────────────────────────────────────────
 
+@app.get(_prefix, tags=["health"], summary="API v1 root check")
+async def api_v1_root() -> dict[str, str]:
+    return {
+        "status": "online",
+        "name": settings.app_name,
+        "version": settings.app_version,
+    }
+
+
 @app.get("/health", tags=["health"], summary="Application health check")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
