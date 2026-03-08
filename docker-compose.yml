@@ -1,0 +1,134 @@
+# ───────────────────────────────────────────────────────────────────────────────
+# LuminaLib – Full-Stack Docker Compose
+# Services: postgres | redis | backend (FastAPI) | frontend (Next.js)
+# ───────────────────────────────────────────────────────────────────────────────
+
+networks:
+  lumina-net:
+    driver: bridge
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: luminalib-postgres
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: luminalib
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: luminalib-redis
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI Backend ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./Lumina-backend
+      dockerfile: Dockerfile
+    container_name: luminalib-backend
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    ports:
+      - "8000:8000"
+    environment:
+      # Database (must be in env — needed before DB is reachable)
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/luminalib
+      # JWT secrets (stay in env, never in a DB row)
+      JWT_SECRET: change-me-in-production
+      JWT_ALGORITHM: HS256
+      # Loki connection
+      LOKI_URL: http://loki:3100/loki/api/v1/push
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./Lumina-backend/storage:/app/storage
+
+  # ── Next.js Frontend ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./Lumina-frontend
+      dockerfile: Dockerfile
+    container_name: luminalib-frontend
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    ports:
+      - "3000:3000"
+    environment:
+      # Points to the host machine so browser requests reach the backend
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NODE_ENV: production
+      # Push logs to Loki directly
+      LOKI_URL: http://loki:3100
+    depends_on:
+      - backend
+
+  # ── Logging & Monitoring (Production Grade) ──────────────────────────────────
+  loki:
+    image: grafana/loki:latest
+    container_name: luminalib-loki
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: luminalib-grafana
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin # Change in production
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_SERVER_DOMAIN: "localhost"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:3000/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+    name: luminalib-pgdata
+  loki-data:
+    name: luminalib-loki-data
+  grafana-data:
+    name: luminalib-grafana-data
