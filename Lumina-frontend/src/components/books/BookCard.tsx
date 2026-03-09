@@ -46,10 +46,10 @@ export function BookCard({ book }: BookCardProps) {
                     glow.border,
                 )} />
 
-                {/* Inner card — pure white */}
-                <article className="relative bg-white rounded-[14px] h-full overflow-hidden flex flex-col">
+                {/* Inner card — adapts to dark mode */}
+                <article className="relative bg-white dark:bg-slate-900 rounded-[14px] h-full overflow-hidden flex flex-col">
                     {/* Cover area */}
-                    <div className="relative h-44 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 flex items-center justify-center overflow-hidden">
+                    <div className="relative h-44 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center overflow-hidden">
                         {book.cover_image_url ? (
                             <img
                                 src={book.cover_image_url}
@@ -57,7 +57,7 @@ export function BookCard({ book }: BookCardProps) {
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                             />
                         ) : (
-                            <BookOpen className="h-14 w-14 text-slate-200 group-hover:text-blue-300 group-hover:scale-110 transition-all duration-500" />
+                            <BookOpen className="h-14 w-14 text-slate-200 dark:text-slate-700 group-hover:text-blue-300 dark:group-hover:text-blue-500 group-hover:scale-110 transition-all duration-500" />
                         )}
 
                         {/* Genre badge overlaid */}
@@ -72,28 +72,28 @@ export function BookCard({ book }: BookCardProps) {
                         )}
 
                         {/* Arrow on hover */}
-                        <div className="absolute top-3 right-3 h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                            <ArrowUpRight className="h-4 w-4 text-blue-600" />
+                        <div className="absolute top-3 right-3 h-7 w-7 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <ArrowUpRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         </div>
                     </div>
 
                     {/* Body */}
                     <div className="p-5 flex flex-col flex-1 gap-3">
                         <div>
-                            <h3 className="font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors text-sm mb-1">
+                            <h3 className="font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors text-sm mb-1">
                                 {book.title}
                             </h3>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                <Author className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <Author className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                                 <span className="line-clamp-1">{book.author}</span>
                             </div>
                         </div>
 
                         {book.description && (
-                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{book.description}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{book.description}</p>
                         )}
 
-                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-slate-100 text-xs text-slate-400">
+                        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500">
                             {book.year_published && (
                                 <div className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3" />

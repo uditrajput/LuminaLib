@@ -125,13 +125,13 @@ export default function BookDetailPage({ params }: PageProps) {
 
     if (!isAuthenticated) return (
         <DashboardLayout>
-            <div className="flex flex-col items-center gap-4 p-12 bg-white rounded-3xl border border-amber-100 shadow-sm text-center max-w-md mx-auto mt-12">
-                <div className="p-4 bg-amber-50 rounded-full">
+            <div className="flex flex-col items-center gap-4 p-12 bg-white dark:bg-slate-900 rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm text-center max-w-md mx-auto mt-12">
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-full">
                     <Lock className="h-10 w-10 text-amber-500" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-1">Authentication Required</h2>
-                    <p className="text-sm text-slate-500">You must be logged in to view book details and borrow books.</p>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Authentication Required</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">You must be logged in to view book details and borrow books.</p>
                 </div>
                 <div className="flex gap-3">
                     <Link href={`/login?redirect=/books/${bookId}`}>
@@ -151,13 +151,13 @@ export default function BookDetailPage({ params }: PageProps) {
 
     if (isError || !book) return (
         <DashboardLayout>
-            <div className="flex flex-col items-center gap-4 p-12 bg-white rounded-3xl border border-red-100 shadow-sm text-center max-w-md mx-auto mt-12">
-                <div className="p-4 bg-red-50 rounded-full">
+            <div className="flex flex-col items-center gap-4 p-12 bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-900/30 shadow-sm text-center max-w-md mx-auto mt-12">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-full">
                     <AlertCircle className="h-10 w-10 text-red-400" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-slate-900 mb-1">Book not found</h2>
-                    <p className="text-sm text-slate-500">This book may have been removed or the link is incorrect.</p>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Book not found</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">This book may have been removed or the link is incorrect.</p>
                 </div>
                 <div className="flex gap-3">
                     <Button onClick={() => refetch()} variant="outline" className="gap-2 rounded-xl">
@@ -179,16 +179,16 @@ export default function BookDetailPage({ params }: PageProps) {
         <DashboardLayout>
             <div className="max-w-5xl mx-auto animate-fade-in space-y-8">
                 {/* Back */}
-                <Link href="/books" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600 transition-colors">
+                <Link href="/books" className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     <ChevronLeft className="h-4 w-4" />
                     Back to Library
                 </Link>
 
                 {/* Hero card */}
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
                         {/* Cover */}
-                        <div className="relative h-64 md:h-auto bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center border-r border-slate-100 md:rounded-l-3xl overflow-hidden">
+                        <div className="relative h-64 md:h-auto bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center border-r border-slate-100 dark:border-slate-800 md:rounded-l-3xl overflow-hidden">
                             {book.cover_image_url ? (
                                 <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
                             ) : (
@@ -200,13 +200,13 @@ export default function BookDetailPage({ params }: PageProps) {
                         <div className="md:col-span-2 p-8 flex flex-col justify-between gap-6">
                             <div className="space-y-3">
                                 {(book as any).genre && (
-                                    <span className="status-badge bg-blue-100 text-blue-700">
+                                    <span className="status-badge bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                                         <Tag className="h-2.5 w-2.5" />
                                         {(book as any).genre}
                                     </span>
                                 )}
-                                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight">{book.title}</h1>
-                                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight">{book.title}</h1>
+                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
                                     <AuthorIcon className="h-4 w-4" />
                                     <span>{book.author}</span>
                                     {(book as any).year_published && (
@@ -226,13 +226,13 @@ export default function BookDetailPage({ params }: PageProps) {
                                                 <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-amber-400" : "text-slate-200"}`} />
                                             ))}
                                         </div>
-                                        <span className="text-sm font-semibold text-slate-700">{avgRating.toFixed(1)}</span>
-                                        <span className="text-xs text-slate-400">({summary.total_reviews} reviews)</span>
+                                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{avgRating.toFixed(1)}</span>
+                                        <span className="text-xs text-slate-400 dark:text-slate-500">({summary.total_reviews} reviews)</span>
                                     </div>
                                 )}
 
                                 {book.description && (
-                                    <p className="text-sm text-slate-600 leading-relaxed">{book.description}</p>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{book.description}</p>
                                 )}
                             </div>
 
@@ -331,34 +331,34 @@ export default function BookDetailPage({ params }: PageProps) {
 
                 {/* AI Summary */}
                 {summary?.summary && (
-                    <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-3xl p-6 space-y-3">
-                        <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm">
+                    <div className="bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/10 dark:to-violet-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-3xl p-6 space-y-3">
+                        <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-semibold text-sm">
                             <Brain className="h-5 w-5" />
                             AI-Generated Summary
                         </div>
-                        <p className="text-slate-700 text-sm leading-relaxed">{summary.summary}</p>
+                        <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{summary.summary}</p>
                     </div>
                 )}
 
                 {/* Stats */}
                 {summary && summary.total_reviews > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-center">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 text-center">
                             <BarChart2 className="h-5 w-5 text-blue-500 mx-auto mb-1" />
-                            <p className="text-2xl font-extrabold text-slate-900">{avgRating.toFixed(1)}</p>
-                            <p className="text-xs text-slate-500">Avg Rating</p>
+                            <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{avgRating.toFixed(1)}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Avg Rating</p>
                         </div>
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-center">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 text-center">
                             <MessageSquarePlus className="h-5 w-5 text-violet-500 mx-auto mb-1" />
-                            <p className="text-2xl font-extrabold text-slate-900">{summary.total_reviews}</p>
-                            <p className="text-xs text-slate-500">Reviews</p>
+                            <p className="text-2xl font-extrabold text-slate-900 dark:text-white">{summary.total_reviews}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Reviews</p>
                         </div>
                     </div>
                 )}
 
                 {/* Reviews list */}
                 <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-slate-900 border-l-4 border-blue-600 pl-3">Reviews</h2>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white border-l-4 border-blue-600 pl-3">Reviews</h2>
                     {reviews && reviews.length > 0 ? reviews.map((rev) => {
                         // Backend schemas handle date named `created_date` or `created_at` depending on model/schema alignment
                         const rawDate = (rev as any).created_date || (rev as any).created_at;
@@ -366,28 +366,28 @@ export default function BookDetailPage({ params }: PageProps) {
                         const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString() : "";
 
                         return (
-                            <div key={rev.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                            <div key={rev.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                        <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
                                             {(rev.full_name || "U")[0].toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-900">{rev.full_name || "User"}</p>
+                                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{rev.full_name || "User"}</p>
                                             <div className="flex">
                                                 {[1, 2, 3, 4, 5].map((s) => (
-                                                    <Star key={s} className={`h-3 w-3 ${s <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}`} />
+                                                    <Star key={s} className={`h-3 w-3 ${s <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 dark:text-slate-700"}`} />
                                                 ))}
                                             </div>
                                         </div>
                                     </div>
-                                    {dateStr && <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{dateStr}</p>}
+                                    {dateStr && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">{dateStr}</p>}
                                 </div>
-                                <p className="text-sm text-slate-700 leading-relaxed pl-10 italic">"{rev.review_text}"</p>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed pl-10 italic">"{rev.review_text}"</p>
                             </div>
                         )
                     }) : (
-                        <p className="text-sm text-slate-400 bg-white rounded-2xl border border-slate-100 p-6 text-center">
+                        <p className="text-sm text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center">
                             No reviews yet. Borrow this book and be the first to review it!
                         </p>
                     )}
@@ -395,8 +395,8 @@ export default function BookDetailPage({ params }: PageProps) {
 
                 {/* Write review — show only if user currently has borrowed the book */}
                 {isAuthenticated && isBorrowed && (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 space-y-4">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <MessageSquarePlus className="h-5 w-5 text-blue-500" />
                             Write a Review
                         </h3>
@@ -416,7 +416,7 @@ export default function BookDetailPage({ params }: PageProps) {
                                     />
                                 </button>
                             ))}
-                            <span className="ml-2 text-sm text-slate-500 self-center">{rating}/5</span>
+                            <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 self-center">{rating}/5</span>
                         </div>
 
                         <textarea
@@ -424,7 +424,7 @@ export default function BookDetailPage({ params }: PageProps) {
                             onChange={(e) => setReviewText(e.target.value)}
                             placeholder="Share your thoughts about this book…"
                             rows={4}
-                            className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition"
+                            className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500 focus:ring-1 focus:ring-blue-400 dark:focus:ring-blue-500 transition"
                         />
 
                         {reviewMut.isError && (
