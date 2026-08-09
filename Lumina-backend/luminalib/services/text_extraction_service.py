@@ -14,9 +14,16 @@ def extract_text(filename: str, content: bytes) -> Tuple[str, str]:
     lower = filename.lower()
     if lower.endswith(".pdf"):
         logger.debug("Extracting text from PDF: %s", filename)
-        return _extract_pdf_text(content), "application/pdf"
-    logger.debug("Reading plain text from: %s", filename)
-    return content.decode("utf-8", errors="ignore"), "text/plain"
+        raw_text = _extract_pdf_text(content)
+        content_type = "application/pdf"
+    else:
+        logger.debug("Reading plain text from: %s", filename)
+        raw_text = content.decode("utf-8", errors="ignore")
+        content_type = "text/plain"
+    
+    # Scrub raw markdown bold asterisks (**) from parsed text
+    cleaned_text = raw_text.replace("**", "")
+    return cleaned_text, content_type
 
 
 def _extract_pdf_text(content: bytes) -> str:
@@ -25,3 +32,4 @@ def _extract_pdf_text(content: bytes) -> str:
     reader = PdfReader(BytesIO(content))
     pages = [page.extract_text() or "" for page in reader.pages]
     return "\n".join(pages)
+

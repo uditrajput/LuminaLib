@@ -23,24 +23,32 @@ async def _generate_answer(question: str, context: str) -> str:
     """Generate an answer using the configured LLM provider."""
     llm = await get_llm_provider()
 
-    # Build the prompt inline — the LLM interface expects a single content string
     system_prompt = (
         "You are LuminaLib's intelligent AI assistant. "
-        "If the user asks a question, answer it using ONLY the provided context. "
-        "If the user's input is a casual greeting like 'Hi' or 'Good morning', or small talk, "
-        "respond politely in a conversational manner without using the context."
+        "Answer the user's question directly, accurately, and concisely. "
+        "When the user asks to be asked questions on a topic (e.g. 'ask me questions on X', 'ask me a question on Y', or 'generate questions on Z'), you MUST provide the most frequently asked, high-yield exam and interview questions on that specific topic. "
+        "When asked for a table or tabular format, you MUST format the response strictly as a standard Markdown table with complete opening and closing pipes for all columns (e.g. | # | Question |). "
+        "Do not repeat the user's question, prompt headers, or prefixes in your answer."
     )
-    user_prompt = f"Context:\n{context}\n\nUser Input: {question}"
+    if context:
+        user_prompt = f"Library Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+    else:
+        user_prompt = f"Question: {question}\n\nAnswer:"
 
-    # Use a direct _call if the provider supports it, otherwise fall back to summarize
     if hasattr(llm, "_call"):
-        return await llm._call(
+        raw_answer = await llm._call(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
     else:
-        # Fallback: use summarize with combined prompt
-        return await llm.summarize(f"{system_prompt}\n\n{user_prompt}")
+        raw_answer = await llm.summarize(f"{system_prompt}\n\n{user_prompt}")
+
+    import re
+    cleaned = re.sub(r"^(the\s+)?(user\s+input|question):\s*.*?\n+", "", raw_answer, flags=re.IGNORECASE).strip()
+    cleaned = cleaned.replace("**", "")
+    return cleaned if cleaned else raw_answer.replace("**", "")
+
+
 
 
 @router.post("", response_model=AnswerResponse, summary="Ask a question against ingested documents")

@@ -4,7 +4,8 @@ import React, { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { X, Upload, FileText, AlertCircle, CheckCircle2, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
+import { X, Upload, FileText, AlertCircle, CheckCircle2, Image as ImageIcon, Link as LinkIcon, Loader2 } from "lucide-react";
+import { extractPdfMetadata } from "@/utils/pdfUtils";
 
 interface Props {
     onClose: () => void;
@@ -24,6 +25,7 @@ export default function BookUploadModal({ onClose }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [extracting, setExtracting] = useState(false);
 
     // Cover image state
     const [coverMode, setCoverMode] = useState<CoverMode>("file");
@@ -42,6 +44,38 @@ export default function BookUploadModal({ onClose }: Props) {
             reader.readAsDataURL(f);
         } else {
             setCoverPreview(null);
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0] ?? null;
+        setFile(selectedFile);
+        
+        if (selectedFile && selectedFile.type === "application/pdf") {
+            try {
+                setExtracting(true);
+                const metadata = await extractPdfMetadata(selectedFile);
+                
+                // Use file name (without extension) as the title
+                const fileName = selectedFile.name.replace(/\.[^/.]+$/, "");
+                setTitle(fileName || metadata.title);
+                
+                if (metadata.author) setAuthor(metadata.author);
+                if (metadata.year) setYear(metadata.year);
+                if (metadata.genre) setGenre(metadata.genre);
+                if (metadata.description) setDescription(metadata.description);
+                if (metadata.coverFile) {
+                    setCoverMode("file");
+                    setCoverFile(metadata.coverFile);
+                    const reader = new FileReader();
+                    reader.onload = () => setCoverPreview(reader.result as string);
+                    reader.readAsDataURL(metadata.coverFile);
+                }
+            } catch (err) {
+                console.error("Failed to extract PDF metadata", err);
+            } finally {
+                setExtracting(false);
+            }
         }
     };
 
@@ -132,9 +166,17 @@ export default function BookUploadModal({ onClose }: Props) {
                             className="border-2 border-dashed border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 text-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 transition-all group"
                         >
                             {file ? (
-                                <div className="flex items-center justify-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-                                    <FileText className="h-5 w-5 text-blue-500" />
-                                    {file.name}
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                    <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                                        <FileText className="h-5 w-5 text-blue-500" />
+                                        {file.name}
+                                    </div>
+                                    {extracting && (
+                                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            Extracting book data...
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <>
@@ -147,7 +189,7 @@ export default function BookUploadModal({ onClose }: Props) {
                                 type="file"
                                 accept=".pdf,.txt"
                                 className="hidden"
-                                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                                onChange={handleFileChange}
                             />
                         </div>
                     </div>

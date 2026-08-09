@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select
 
-from luminalib.api.v1.endpoints import ai, app_configs, auth, books, config, documents, ingestion, qa, recommendations, reviews, users
+from luminalib.api.v1.endpoints import ai, app_configs, auth, books, config, documents, ingestion, qa, recommendations, reviews, users, voice
 from luminalib.core.config import settings
 from luminalib.core.dynamic_config import DEFAULTS, get_dynamic, refresh_cache
 from luminalib.core.exceptions import (
@@ -44,6 +44,8 @@ from luminalib.models import (  # noqa: F401
     SystemConfig,
     User,
     UserPreference,
+    VoiceConversation,
+    VoiceTurn,
 )
 
 # ── Logging ─────────────────────────────────────────────
@@ -305,6 +307,7 @@ app.include_router(ingestion.router, prefix=_prefix)
 app.include_router(qa.router, prefix=_prefix)
 app.include_router(ai.router, prefix=_prefix)
 app.include_router(app_configs.router, prefix=_prefix)
+app.include_router(voice.router, prefix=_prefix)
 
 
 # ── Health check ────────────────────────────────────────

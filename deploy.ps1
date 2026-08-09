@@ -102,6 +102,10 @@ if (-not (Test-Path ".\Lumina-backend\Dockerfile")) {
     Write-Fail "Lumina-backend\Dockerfile not found."
     exit 1
 }
+if (-not (Test-Path ".\Lumina-voice\Dockerfile")) {
+    Write-Fail "Lumina-voice\Dockerfile not found."
+    exit 1
+}
 if (-not (Test-Path ".\Lumina-frontend\Dockerfile")) {
     Write-Fail "Lumina-frontend\Dockerfile not found."
     exit 1
@@ -159,6 +163,7 @@ Write-Host "║                                                      ║" -Foreg
 Write-Host "║  Frontend App     →  http://localhost:3000           ║" -ForegroundColor White
 Write-Host "║  Grafana Logs     →  http://localhost:3000/grafana   ║" -ForegroundColor White
 Write-Host "║  Backend REST API →  http://localhost:8000/api/v1    ║" -ForegroundColor White
+Write-Host "║  Voice WS Service →  ws://localhost:8001/voice/ws    ║" -ForegroundColor White
 Write-Host "║  Swagger Docs     →  http://localhost:8000/docs      ║" -ForegroundColor White
 Write-Host "║  ReDoc            →  http://localhost:8000/redoc     ║" -ForegroundColor White
 Write-Host "║  PostgreSQL       →  localhost:5432  (luminalib DB)  ║" -ForegroundColor DarkGray

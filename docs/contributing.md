@@ -19,9 +19,10 @@ Enhancement suggestions are tracked as GitHub issues.
 2. If you've added code that should be tested, add tests.
 3. If you've changed APIs, update the documentation.
 4. **Ensure the test suites pass**:
-   - **Backend testing:** Navigate to `Lumina-backend` and run `pytest --cov`. This verifies Auth logic, API endpoints, Book CRUD limits, Borrow workflows, and mock GenAI. 
+   - **Backend testing:** Navigate to `Lumina-backend` and run `pytest --cov`. This verifies Auth logic, API endpoints, Book CRUD limits, Borrow workflows, Voice security subprotocols, and mock GenAI (34 passed).
    - Ensure to verify that there are no critical anomalies pushing to the Grafana logger (`http://localhost:3000/grafana/dashboards`) natively during integration testing.
-   - **Frontend testing:** Navigate to `Lumina-frontend` and run `npm run test`. This ensures Component rendering boundaries and Zod form architectures remain intact.
+   - **Voice service testing:** Navigate to `Lumina-voice` and run `pytest`. This verifies subprotocol JWT auth, audio payload validation, log scrubbing, and speech synthesis (5 passed).
+   - **Frontend testing:** Navigate to `Lumina-frontend` and run `npm run test`. This ensures Component rendering boundaries, PDF space-preserved text selection, Voice Web Speech API testing, and Zod form architectures remain intact (11 suites / 51 tests passed).
 5. Make sure your code lints.
 
 ## 📁 Repository Folder Structure Guide

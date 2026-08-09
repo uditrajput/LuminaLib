@@ -1,9 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  experimental: {
-    instrumentationHook: true,
-    serverComponentsExternalPackages: ['winston', 'winston-loki'],
+  serverExternalPackages: ['winston', 'winston-loki', 'canvas'],
+  turbopack: {
+    resolveAlias: {
+      canvas: { browser: '' },
+    },
+  },
+  experimental: {},
+  webpack: (config: any) => {
+    // Prevent bundling 'canvas' which pdfjs-dist optionally requires for Node.js
+    config.resolve.alias.canvas = false;
+    return config;
   },
   async rewrites() {
     return [
@@ -16,3 +24,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

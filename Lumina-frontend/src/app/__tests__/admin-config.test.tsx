@@ -59,6 +59,7 @@ describe("Admin Config Page", () => {
     it("displays the LLM provider information", () => {
         render(<AppConfigPage />);
         expect(screen.getByText("LLM Provider")).toBeInTheDocument();
+        fireEvent.click(screen.getByText("LLM Provider"));
         expect(screen.getByText("Docker Model Runner")).toBeInTheDocument();
     });
 

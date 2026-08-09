@@ -1,123 +1,169 @@
 # LuminaLib Functional Guide
 
-Welcome to the LuminaLib functional guide. This document provides a walkthrough of the core features available in the platform and how to interact with them through the user interface.
+Welcome to the LuminaLib functional guide. This document provides a detailed walkthrough of all core features, AI intelligence capabilities, PDF reading experience, voice interaction workflows, and system settings available in the platform.
 
 ---
 
 ## 🔐 1. Authentication & User Access
 
 ### Creating an Account
-- Navigate to the **Signup** page.
-- Requirements: A valid email and a strong password (minimum 12 characters, including mixed symbols/numbers).
+- Navigate to the **Signup** page (`/signup`).
+- Requirements: A valid email address and a strong password (minimum 12 characters, including uppercase, lowercase, numbers, and symbols).
 
 ### Logging In
-- Navigate to the **Login** page.
+- Navigate to the **Login** page (`/login`).
 - **Default Admin Credentials**:
   - **Email**: `udit.rajput@hotmail.com`
   - **Password**: `Admin@12345!`
 
 ### Profile Management
-- Once logged in, click on the **Profile** icon in the navigation bar.
-- Here you can update your personal details (Full Name, Bio) and security settings.
+- Click on the **Profile** icon in the navigation bar (`/profile`).
+- Update your personal details (Full Name, Bio) and security settings.
+- Direct link to **Voice Settings** (`/profile/voice-settings`) to configure your preferred speech synthesis parameters.
 
 ---
 
-## 📚 2. Library Management (Books)
+## 📚 2. Library Management & PDF Reading Experience
 
 ### Browsing the Collection
-- The **Books** page displays a paginated list of all available books.
-- You can see titles, authors, genres, and publication years at a glance.
+- The **Books** page (`/books`) displays a responsive grid and paginated list of available books.
+- Search by title, author, or filter by genre and publication year.
 
 ### Uploading a Book (User/Admin)
-- Click the **"Add New Book"** button.
+- Click the **"Add New Book"** button on the Books page.
 - Provide the title, author, genre, and publication year.
 - **File Upload**: Attach a PDF or Text file.
-- On successful upload, the system starts an **Async AI Summary** task in the background.
+- Upon successful upload, the system automatically starts an **Async AI Background Ingestion Task** to chunk, embed, and summarize the book.
+
+### PDF Reader & Custom Frame Themes
+- Click any book to open its detail page (`/books/[id]`) with the integrated PDF reader.
+- **8 Book Frame Themes**: Choose your preferred reading atmosphere from the frame selector:
+  1. *Default Clean* (Sleek slate border)
+  2. *Glassmorphism* (Frosted glass backdrop blur)
+  3. *Classic Wood* (Warm mahogany timber finish)
+  4. *Cyberpunk Neon* (Vibrant cyan/purple glowing border)
+  5. *Vintage Parchment* (Aged paper texture)
+  6. *Midnight Dark* (Deep dark theme for night reading)
+  7. *Minimal White* (Pure crisp white canvas)
+  8. *Golden Luxury* (Elegant brushed gold border)
+  - Selected frame style is automatically saved to local storage and persists across reading sessions.
+- **Frame-Anchored Navigation Buttons**: Left and Right glassmorphism page navigation buttons appear anchored right outside the page frame on hover and adjust position dynamically when zooming.
+- **Enlarged Thumbnail Sidebar**: Click the panel toggle button to open the left sidebar (`w-80`).
+  - Displays single-column enlarged page thumbnails.
+  - Page number labels (`Page X`) and `Active` status badges are cleanly displayed *below* each thumbnail card.
+  - Built-in text search bar allows searching for specific text directly within the sidebar panel.
+- **Text Selection & Saved Highlights Drawer**:
+  - Selecting text on any page preserves exact word boundaries and spaces (`item.str + (item.hasEOL ? "\n" : " ")`).
+  - Text highlights format cleanly in the **Saved Highlights** drawer with text wrapping (`break-words`) and page jump links.
 
 ### Borrowing and Returning
-- Click on a book to view its details.
-- If available, click **"Borrow Book"**.
-- To return, navigate back to the book detail page and click **"Return Book"**.
+- Click **"Borrow Book"** on an available book detail page.
+- To return a borrowed book, navigate back to the book detail page and click **"Return Book"**.
 
 ---
 
 ## ⭐ 3. Feedback & Reviews
 
 ### Submitting a Review
-- **Requirement**: You must have borrowed the book at least once.
-- On the book detail page, scroll to the **Reviews** section.
-- Provide a star rating (1-5) and your written feedback.
-- **AI Sentiment**: The system automatically incorporates your review into a rolling "Review Consensus" summary for that book.
+- **Requirement**: Users must have borrowed the book at least once to leave a review.
+- Scroll to the **Reviews** section on the book detail page.
+- Select a star rating (1–5) and write your review.
+- **AI Sentiment & Review Consensus**: The system automatically recalculates and updates the rolling AI "Review Consensus" summary for the book after every review submission.
 
 ---
 
-## 🤖 4. AI Intelligence Features
+## 🤖 4. AI Intelligence & Q&A (`/qa`)
 
 ### AI Book Summaries
-- Every ingested book gets an automatic AI-generated summary.
-- View this on the book detail page to get a quick 5-point overview of the content.
+- Every uploaded book receives an automated AI-generated summary.
+- View this on the book detail page for a quick 5-point overview.
 
-### Document Ingestion & Q&A (RAG)
-- Navigate to the **QA** section.
-- You can upload documents specifically for semantic search.
-- Once ingested, use the search bar to **"Ask anything about your library"**.
-- The system will use the RAG (Retrieval-Augmented Generation) pipeline to give you context-grounded answers.
+### Document Ingestion & Q&A (RAG Pipeline)
+- Navigate to the **QA** section (`/qa`).
+- Ask questions against the ingested documents of your borrowed books using the natural language prompt input.
+- The system ground answers in your library's content using the RAG pipeline.
+
+### High-Yield Topic Practice Questions
+- When you ask the AI assistant to generate practice questions on a topic (e.g. *"Ask me questions on Python"*, *"Ask me a question on Operating Systems"*, or *"Give me 5 questions on HTTP"*):
+  - The AI assistant generates the **most frequently asked, high-yield exam and interview questions** for that specific topic.
+  - Questions are formatted in a clean table or structured list.
+
+### 1-Click `✨ Answer` Action Buttons
+- Every question generated by the AI assistant in Markdown tables or lists includes an interactive **`✨ Answer`** button beneath it.
+- Click **`✨ Answer`** on any question to instantly prompt the AI assistant for a detailed explanation.
+- Action buttons are displayed **exclusively under AI assistant messages** (never under user prompts).
+
+### Clean Speech Synthesis (Voice Narration)
+- Click the speaker icon on any response or use Voice Mode to hear answers read aloud.
+- The TTS engine automatically strips non-meaningful metadata before speaking:
+  - Strips page number phrases (e.g. *"On Page 12"*, *"p. 14"*, *"Pages 3 to 5"*).
+  - Strips citation markers (e.g. `[1]`, `(Excerpt 2)`).
+  - Strips table pipe symbols (`|`), action headers (`| Action |`), dashes (`---`), and Markdown bold asterisks (`**`).
+  - Ensures pure, natural, and meaningful speech narration.
 
 ---
 
 ## 💡 5. Personalized Recommendations
 
 ### Setting Preferences
-- Navigate to your **Profile** and look for the **"Reading Preferences"** section.
-- Tag your favorite genres, authors, and keywords.
+- Go to your **Profile** (`/profile`) and navigate to **Reading Preferences**.
+- Tag your favorite genres, authors, and topics of interest.
 
-### Receiving Suggestions
-- Navigate to the **Recommendations** page.
-- The system uses a 3-tier ML engine to suggest books based on your preferences and the similarity of content in the library.
-
----
-
-## ⚙️ 6. System Administration (Admin Only)
-
-### App Settings Dashboard
-- Accessible to users with the **Admin** role.
-- **LLM Configuration**: Swap between providers like **OpenRouter**, **Ollama**, or **OpenAI**.
-- **API Keys**: Manage your keys for external providers directly in the browser.
-- **Recommendation Engine**: Switch between "Content-Based" and "ML-Model" strategies.
-
-### Observability & Telemetry (Grafana)
-- Admins have direct access to a **Grafana** link embedded right in their Navigation bar.
-- Clicking the link seamlessly directs you to a pre-provisioned, secure SSO-proxied dashboard capturing live production frontend and backend logs injected natively via **Loki**.
+### Receiving Recommendations
+- Navigate to the **Recommendations** page (`/recommendations`).
+- The 3-tier ML engine calculates TF-IDF cosine similarity across the library corpus and pairs it with your preference profile to surface personalized suggestions.
 
 ---
 
-## 🧪 Quick Verification Flow
+## 🎙️ 6. Voice AI Assistant (Hands-Free Interaction)
 
-If you have just installed the application, follow this flow to verify all components:
-1. **Login** as the default admin.
-2. **Setup AI**: Go to App Settings and ensure a valid LLM provider (like OpenRouter or OpenAI) is configured with an API key.
-3. **Upload**: Add a small PDF book.
-4. **Summary**: Wait 10 seconds and refresh the book detail page to see the AI summary.
-5. **Review**: Borrow the book, then leave a 5-star review.
-6. **Recommendation**: Set your preference to the genre of the book you just uploaded and check the Recommendations page.
+### Floating Voice Widget & Slide-Over Panel
+- A persistent microphone widget floats at the bottom-right of every page.
+- On book detail pages (`/books/[id]`), the widget automatically binds to that book's context.
+- Click the widget or press the spacebar shortcut to open the slide-over **Voice Panel**.
 
----
-
-## 📂 System Core Folder Structure
-To understand where to look across the stack when referencing functionality:
-- **`Lumina-backend/luminalib/api/v1/endpoints/`**: Holds all routing logic for User, Book, QA functionalities.
-- **`Lumina-backend/luminalib/services/`**: Translates functional requirements to business logic actions (e.g., generating AI summaries via LLM factories).
-- **`Lumina-frontend/src/app/`**: Reflects the user-facing URI hierarchy.
-- **`Lumina-frontend/src/components/`**: Maps to visual blocks representing actions (like `BookCard`, `ReviewSubmitModal`).
+### Spoken Commands & Actions
+- **Book Q&A**: Ask *"What is this book about?"* or *"Summarize chapter 2"* to hear AI answers read aloud.
+- **Voice Actions**: Say *"Borrow this book"*, *"Return this book"*, or *"Leave a 5-star review: excellent explanation"*.
+- **Confirmation Flow**: Destructive actions trigger a 30-second voice or click confirmation (*"Say confirm to proceed"*).
+- **Voice Preferences**: Select your preferred Kokoro TTS voice model (`af_bella`, `am_adam`, `bf_emma`, etc.), speech rate, and transcript display options.
+- **Voice Sample Previewing**: Click **`Test Active Voice`** in Voice Settings to hear an instant, natural Web Speech API audio sample preview in human voice.
 
 ---
 
-## 🧪 Automated Integrated Test Scenarios Map
-*LuminaLib verifies functionality comprehensively using internal tests mapped across domains:*
-- **Backend Functional Tests (`pytest`)**:
-  - `test_auth.py`: System registers, verifies profiles without duplication.
-  - `test_books.py`/`test_reviews.py`: Confirms user constraints (must borrow before reviewing limits, borrow state tracks).
-  - `test_ingestion_qa.py`: Asserts correct chunk-boundary operations.
-- **Frontend Integrated Behaviors (`jest`)**:
-  - Validates `ProfileContext` rendering conditional blocks successfully.
-  - Strict UI testing checks API intercepts logic and UI responses (Modals closing on unauthenticated API `401` errors).
+## ⚙️ 7. System Administration (Admin Only)
+
+### Dynamic App Settings (`/admin/config`)
+Reorganized configuration dashboard accessible to Admin users:
+
+1. **General Configurations (Top Section, Default Open)**:
+   - Placed at the very top of the page.
+   - Search by key name or description.
+   - Click **`+ Add Config`** directly in the section header bar to define custom key-value settings. The **`+ Add Config`** button automatically hides when the section is collapsed (`Hide`).
+2. **LLM Provider Panel (Default Collapsed)**:
+   - Positioned second with a collapsible header.
+   - Dynamic selection between **Docker Model Runner**, **OpenRouter**, **Ollama**, **OpenAI**, and **Mock**.
+   - Dropdown menu opens in an unclipped, scrollable overlay (`max-h-72 overflow-y-auto z-50`).
+   - Input and update API keys dynamically without modifying `.env` files or restarting containers.
+3. **Voice Assistant & Speech Settings Panel (Default Collapsed)**:
+   - Positioned third with a collapsible header.
+   - Configure Kokoro TTS voice model, speech speed (0.5x–2.0x), auto-play, and transcript display.
+   - Smart **`Save Voice Settings`** button remains disabled when settings match loaded baseline preferences, activating only when changes occur.
+
+### User Management (`/admin/users`)
+- View registered users, assign roles (Admin/User), block accounts, or delete user profiles.
+
+### Observability & Telemetry (Grafana & Loki)
+- Admins can click the **Grafana** item in the main navigation bar.
+- Uses Next.js Edge Middleware SSO proxying to seamlessly open pre-configured Grafana dashboards displaying live backend and frontend Loki logs.
+
+---
+
+## 🧪 Quick Verification Checklist
+
+1. **Login** as Admin (`udit.rajput@hotmail.com` / `Admin@12345!`).
+2. **App Settings**: Go to `/admin/config`. Confirm General Configurations is open at the top with `+ Add Config`. Expand LLM Provider to select your active model.
+3. **Book & PDF Reader**: Open a book (`/books/[id]`). Switch between the 8 frame themes. Toggle the thumbnail sidebar (`w-80`) and test text search.
+4. **AI Q&A**: Go to `/qa` and type *"Ask me 5 questions on Python"*. Verify high-yield questions appear with 1-click `✨ Answer` buttons under the AI response.
+5. **Clean Voice Mode**: Click the speaker icon to verify page numbers and table pipes are omitted during speech narration.
+6. **Voice Panel**: Click the floating microphone widget to test hands-free voice Q&A and voice action workflows.

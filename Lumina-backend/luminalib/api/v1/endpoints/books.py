@@ -318,3 +318,29 @@ async def delete_book_file(
     book_svc: BookService = Depends(get_book_service),
 ) -> Book:
     return await book_svc.delete_book_file(book_id, user.email)
+
+
+@router.get("/{book_id}/file", summary="Stream or download book file for reading")
+async def get_book_file(
+    book_id: int,
+    user: User = Depends(get_current_user),
+    book_svc: BookService = Depends(get_book_service),
+):
+    book = await book_svc.get_book(book_id)
+    if not book.file_key:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book has no file attached")
+    try:
+        content_bytes = await book_svc.storage.download(book.file_key)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File content not found in storage")
+
+    from fastapi.responses import Response
+    headers = {
+        "Content-Disposition": f'inline; filename="{book.file_name or "book.pdf"}"',
+    }
+    return Response(
+        content=content_bytes,
+        media_type=book.content_type or "application/pdf",
+        headers=headers,
+    )
+

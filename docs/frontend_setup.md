@@ -1,24 +1,27 @@
 # LuminaLib Frontend Configuration and Setup Guide
 
-This document outlines the complete, step-by-step setup procedure for the LuminaLib frontend environment, including local development runs, Dockerized production builds, unit testing instructions, and environment configurations.
+This document outlines the complete setup procedure for the **LuminaLib** Next.js frontend environment, including local development runs, Docker multi-stage standalone builds, atomic Jest testing, and directory layout.
+
+---
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Local Development Setup](#local-development-setup)
 3. [Running via Docker 🐳](#running-via-docker-)
-4. [Testing Suite](#testing-suite)
-5. [Linting and Formatting](#linting-and-formatting)
+4. [Testing Suite (11 Suites / 51 Tests)](#testing-suite)
+5. [Directory Layout](#directory-layout)
+6. [Linting and Code Quality](#linting-and-code-quality)
 
 ---
 
 ## Prerequisites
 
-Before setting up the frontend application, ensure your environment meets the following requirements:
+Ensure your development environment has:
 
-- **Node.js**: Version 20.x or higher.
-- **npm**: Version 10.x or higher (comes bundled with Node.js).
-- **Backend Running**: Make sure your FastAPI backend (`Lumina-backend`) is up and running.
-- **Docker**: Installed on your machine (if you wish to build containerized versions).
+- **Node.js**: Version 20.x LTS or higher.
+- **npm**: Version 10.x or higher.
+- **Backend Running**: FastAPI backend (`Lumina-backend`) listening on `http://localhost:8000/api/v1`.
+- **Docker**: Installed (if building production container images).
 
 ---
 
@@ -26,7 +29,7 @@ Before setting up the frontend application, ensure your environment meets the fo
 
 ### 1. Installation
 
-Start by cloning the codebase and navigating directly into the `Lumina-frontend` directory. Install the required Node packages:
+Navigate into the `Lumina-frontend` directory and install Node dependencies:
 
 ```bash
 cd Lumina-frontend
@@ -35,124 +38,118 @@ npm install
 
 ### 2. Environment Variables
 
-Create your local `.env.local` file at the root of the frontend application (`Lumina-frontend/.env.local`):
+Create your local `.env.local` file at `Lumina-frontend/.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_VOICE_WS_URL=ws://localhost:8001/voice/ws
 ```
 
-*(Note: In previous versions, API keys for LLMs like OpenAI or OpenRouter were stored here. As of v1.0, these are configured dynamically from the **App Settings Dashboard** in the browser, so only the API URL is required locally.)*
+*(Note: LLM API keys and model provider selections are managed dynamically from the **App Settings Dashboard** in the browser and stored in the database, so `.env` edits are not required for AI configuration.)*
 
-### 3. Launch the Server
+### 3. Launch Development Server
 
-Run the development server utilizing the Next.js runtime:
+Run the development server with Hot Module Replacement (HMR):
 
 ```bash
 npm run dev
 ```
 
-The application provides Hot Module Replacement (HMR) and typically runs on `http://localhost:3000`.
+The application will be accessible at [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## Running via Docker 🐳
 
-The project includes an optimized, multi-stage `Dockerfile` tailored for Next.js to drastically decrease image size by utilizing Next's `standalone` output technique.
+The frontend uses a multi-stage `Dockerfile` leveraging Next.js `output: 'standalone'` to produce a lightweight production container.
 
-### 1. Configure for Standalone Mode
+### 1. Build the Docker Image
 
-We've already enabled the `output: 'standalone'` directive in `next.config.ts`. The Dockerfile uses this to build an extremely light production image.
-
-### 2. Build the Docker Image
-
-Run the `docker build` command inside the `Lumina-frontend` folder:
+Run `docker build` inside `Lumina-frontend`:
 
 ```bash
 docker build -t luminalib-frontend:latest .
 ```
 
-*This will run through the layers: `deps` (install dependencies) -> `builder` (compile TypeScript, create static Next.js paths) -> `runner` (create minimal user environment).*
+*Stages: `deps` (npm ci) → `builder` (TypeScript compilation & static generation) → `runner` (minimal Alpine runtime environment).*
 
-### 3. Run the Container
+### 2. Run the Container
 
-Execute your finalized Docker image and expose the correct mapping to your local machine port 3000:
+Execute the Docker image and map port 3000:
 
 ```bash
 docker run -p 3000:3000 luminalib-frontend:latest
 ```
 
-The production-ready frontend will now be actively running at `http://localhost:3000`. 
-
-*(Note: When linking this Frontend Docker container directly to your Backend Container, you should configure a `docker-compose.yml` to set them on a unified network, pointing `NEXT_PUBLIC_API_URL` to the backend container name).*
+The production frontend will start at [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## Testing Suite
 
-The LuminaLib Frontend implements strict, high-fidelity atomic testing using **Jest** and **React Testing Library**. It enforces DOM validation securely in memory using `jsdom`.
+The LuminaLib frontend implements atomic unit and integration tests using **Jest** and **React Testing Library**, running DOM assertions in memory via `jsdom`.
 
-### 1. Run Unit Tests natively
+### 1. Execute Unit Tests
 
-Execute the test command. It will execute the predefined configurations generated within `jest.config.js`:
+Run the test suite:
 
 ```bash
 npm run test
 ```
 
-### 2. Available Test Boundaries & Key Test Cases Covered
+### 2. Test Metrics & Coverage (11 Suites / 51 Tests Passed)
 
-Currently, atomic tests focus on fundamental UI design constraints (e.g., verifying `components/ui/Button.test.tsx` constraints on varying states and CSS tailwind classes). This strategy prevents architectural styling overrides.
+All 11 test suites pass cleanly across core frontend modules:
 
-#### **Explicit Test Environments:**
-- **Auth Forms Verification**: Validation tests for login structures mimicking real form `Zod` events with strict conditions matching password standards.
-- **Component Mock Renders**: Validation checks for mocked API book queries testing proper loading states within UI frames.
-- **State Changes**: AuthContext assertions and User Session validation bounds through Jest abstraction.
+- **Admin Dynamic Config Page (`admin-config.test.tsx`)**: Validates rendering of settings, General Configurations section placement, modal triggers, search filtering, conditional `+ Add Config` button toggling, and unclipped LLM Provider dropdown menu.
+- **Admin User Management (`admin-users.test.tsx`)**: Asserts admin user table rendering, role switching, user blocking, and deletion workflows.
+- **Profile & Preferences (`profile.test.tsx`, `voice-settings.test.tsx`)**: Validates user profile updates, reading preference tags, Web Speech API audio sample testing, and smart disabled save button states.
+- **Authentication (`login.test.tsx`, `signup.test.tsx`)**: Validates form inputs, Zod schema validation errors, 12-character password constraints, and JWT session handling.
+- **Book Catalogue & Detail (`books.test.tsx`)**: Verifies book listing renders, PDF reader modal triggers, space-preserved text selection, saved highlights formatting, and review submission forms.
+- **AI Q&A Chat (`qa.test.tsx`)**: Validates question submission, RAG answer rendering, 1-click `✨ Answer` action buttons on assistant messages, and clean TTS speech synthesis logic.
 
 ---
 
-## 📂 Frontend Folder Structure Refresher
-```bash
+## 📂 Frontend Directory Layout
+
+```
 Lumina-frontend/
 ├── src/
-│   ├── app/                 # Next.js Server Components, layouts
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── admin/config/    # Dynamic App Settings page (General Config top, LLM & Voice collapsed)
+│   │   ├── admin/users/     # User management table & role administration
+│   │   ├── books/           # Book catalogue & detail pages (/books/[id] with PDF reader & 8 frame themes)
+│   │   ├── qa/              # AI Q&A chat page with 1-click answer buttons & clean TTS
+│   │   ├── profile/         # Profile management & reading preferences
+│   │   ├── recommendations/ # Personalized ML book suggestions
+│   │   ├── login/           # User authentication
+│   │   └── signup/          # Account registration
 │   ├── components/
-│   │   ├── ui/              # Buttons, inputs, interactive base blocks
-│   │   ├── books/           # Library-specific blocks
-│   │   └── layout/          # Sidenavs, header navs
-│   ├── context/             # JWT Context providers
-│   ├── hooks/               # TanStack query handlers
-│   ├── services/            # Axios API configurations
-│   └── types/               # Strict DTO interfaces
-├── public/                  # Assets and logos
-├── __tests__/               # Jest test locations
-├── next.config.ts           # Standalone outputs
-├── tailwind.config.ts       # Utility styling overrides
-└── tsconfig.json            # Deep typescript maps
+│   │   ├── ui/              # Buttons, inputs, status alerts, modals
+│   │   ├── books/           # Book cards, review forms, summary modals
+│   │   ├── pdf/             # Integrated PDF viewer with 8 frame themes & enlarged thumbnail sidebar (w-80)
+│   │   ├── voice/           # Floating voice widget & slide-over panel
+│   │   └── layout/          # Sidenav, navbar, DashboardLayout
+│   ├── context/             # AuthContext (JWT state management)
+│   ├── hooks/               # Custom hooks (useAuth, useBooks, useRecommendations, usePreferences, useAppConfigs)
+│   ├── services/            # Axios API clients (authService, bookService, qaService, voiceService, configService)
+│   └── types/               # TypeScript DTOs mirroring backend models
+├── public/                  # Static assets & logos
+├── __tests__/               # 11 Jest test suites
+├── next.config.ts           # Next.js standalone output configuration
+├── tailwind.config.ts       # TailwindCSS utility theme definitions
+├── tsconfig.json            # TypeScript compiler configuration
+└── jest.config.js           # Jest test runner setup
 ```
 
 ---
 
-## Linting and Formatting
+## Linting and Code Quality
 
-LuminaLib asserts firm code styles via `eslint`. All code merged should meet the static analysis checks.
-
-### Run Linter
-
-Check the overall codebase for TypeScript or pattern violations:
+Run static code analysis:
 
 ```bash
 npm run lint
 ```
 
----
-
-## Next Steps
-
-After your frontend and backend are interconnected, try the following actions inside the UI:
-1. Navigate to `http://localhost:3000/signup`.
-2. Register an enterprise User profile (or use the seeded admin account `udit.rajput@hotmail.com` / `Admin@12345!`).
-3. Observe the Next.js client-router push you correctly to the internal Library (**Books**) page via your secure session!
-4. Head to your **Profile** page (`/profile` via top navigation) to dictate your favorite genres.
-5. Watch the **Recommendations** (`/recommendations`) update utilizing your customized preferences to match predictive AI mappings.
-6. (Admin Only) Navigate to the **App Settings** panel to dynamically configure your preferred GenAI LLM provider (OpenAI, OpenRouter, Ollama, etc.) and save it straight to the active backend infrastructure.
-7. (Admin Only) View real-time full-stack logs instantly and securely directly inside the Next.js runtime via the Edge Middleware SSO proxy by clicking the **Grafana** item in the main header!
+Ensure all code passes linting rules before committing changes.

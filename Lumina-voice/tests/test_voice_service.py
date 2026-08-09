@@ -1,0 +1,62 @@
+"""Unit tests for Lumina-voice microservice."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from app.security import (
+    decode_jwt_token,
+    extract_token_from_subprotocol,
+    sanitize_transcript,
+    validate_origin,
+)
+from app.intent import classify_intent
+
+
+def test_subprotocol_token_extraction():
+    header = "voice-v1, jwt-eyJhbGciOiJIUzI1NiJ9.test"
+    selected, token = extract_token_from_subprotocol(header)
+    assert selected == "voice-v1"
+    assert token == "eyJhbGciOiJIUzI1NiJ9.test"
+
+
+def test_sanitize_transcript():
+    raw = "Show me books <script>alert(1)</script>"
+    clean = sanitize_transcript(raw)
+    assert "<script>" not in clean
+    assert clean == "Show me books alert(1)"
+
+
+def test_intent_classification():
+    intent, conf, meta = classify_intent("I want to borrow this book")
+    assert intent == "borrow"
+
+    intent_summary, _, _ = classify_intent("Give me a summary of chapter 1")
+    assert intent_summary == "summary"
+
+    intent_rec, _, _ = classify_intent("Recommend me something similar")
+    assert intent_rec == "recommend"
+
+
+def test_validate_origin():
+    assert validate_origin("http://localhost:3000") is True
+    assert validate_origin("http://malicious.site") is False
+
+
+import pytest
+from app.pipeline import process_user_turn
+
+
+@pytest.mark.asyncio
+async def test_process_user_turn_text():
+    res = await process_user_turn(
+        input_type="text",
+        raw_content="Hi, What's the author name of Complete Reference book?",
+        book_id="general",
+        user_email="test@luminalib.local",
+        user_jwt="",
+    )
+    assert "response_text" in res
+    assert res["response_text"] != ""
+    assert res["intent"] in ("qa", "general")

@@ -1,213 +1,157 @@
-# Local Setup and Testing Guide
+# LuminaLib Backend Setup and Testing Guide
 
-This document provides step-by-step instructions on how to set up, run, and test the **LuminaLib** backend application on your local machine. You can choose to run the application fully using Docker, or natively using a Python virtual environment.
+This document provides step-by-step instructions on how to set up, run, and test the **LuminaLib** FastAPI backend application on your local machine, either natively or via Docker Compose.
 
 ---
 
 ## 📋 Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
+Before starting, ensure your local environment includes:
 
+- **Python 3.11+**: Required for native execution.
+- **Docker & Docker Compose**: Recommended for containerized deployment.
+- **PostgreSQL 16**: (Optional) For native development without Docker.
 - **Git**: For version control.
-- **Python 3.11+**: If running natively.
-- **Docker & Docker Compose**: If running via Docker.
-- **PostgreSQL 16**: (Optional) If running natively without a Dockerized database.
 
 ---
 
 ## 🐳 Option 1: Setup using Docker (Recommended)
 
-Running the application with Docker is the fastest way to get started, as it bundles the application, PostgreSQL, and Redis into isolated containers.
+Docker Compose orchestrates the entire platform (`luminalib-backend`, `luminalib-voice`, `luminalib-frontend`, `luminalib-postgres`, `luminalib-redis`, `luminalib-loki`, `luminalib-grafana`).
 
-### Step 1: Clone and Configure
-1. Open your terminal and navigate to the project root directory (`Lumina-backend`).
-2. Create your environment configuration file from the template:
-   ```bash
-   cp .env.example .env
-   ```
-   *Note: The default values in `.env.example` are already configured to work with the `docker-compose.yml` networking.*
+### Step 1: Configure Environment
+Navigate to `Lumina-backend` and copy the environment template:
+```bash
+cd Lumina-backend
+cp .env.example .env
+```
 
-### Step 2: Build and Run
-1. Build the Docker images and start the containers in detached mode:
-   ```bash
-   docker-compose up --build -d
-   ```
-2. Verify that the containers are running:
-   ```bash
-   docker-compose ps
-   ```
-   *You should see `luminalib-backend`, `luminalib-postgres`, and `luminalib-redis` containers in the `Up` state.*
+### Step 2: Build and Launch Services
+From the monorepo root:
+```bash
+docker-compose up --build -d
+```
 
-### Step 3: Verify the Application
-1. Open your browser and navigate to the Swagger UI:
-   [http://localhost:8000/docs](http://localhost:8000/docs)
-2. The application is now running. Any changes you make to the source code will automatically reload the server if configured with a volume (though building the image baked the code in. For live-reload in Docker, you would map a volume in `docker-compose.yml`).
+Verify container health:
+```bash
+docker-compose ps
+```
 
-### Viewing Logs and Stopping
-- To view live logs from the API container:
+### Step 3: Access API Documentation
+Open your browser and navigate to:
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+### Service Operations
+- Stream live backend logs:
   ```bash
-  docker-compose logs -f api
+  docker-compose logs -f backend
   ```
-- To stop the containers without destroying the database volume:
+- Stop services while preserving data:
   ```bash
   docker-compose stop
   ```
-- To bring down the containers and remove everything (including the database volume if specified):
+- Stop services and reset database volume:
   ```bash
   docker-compose down -v
   ```
 
 ---
 
-## 💻 Option 2: Setup for Local Development (Native)
+## 💻 Option 2: Setup for Native Local Development
 
-If you prefer to run the FastAPI application directly on your host machine for easier debugging or testing, follow these steps.
-
-### Step 1: Create a PostgreSQL Database
-You need a running PostgreSQL instance. You can either use a local install or spin up just the database in Docker.
-
-**Using Docker for just the database (Recommended for native dev):**
+### Step 1: Start PostgreSQL & Redis
+Spin up PostgreSQL and Redis instances locally via Docker:
 ```bash
-docker run -d --name luminalib-pg \
-  -e POSTGRES_DB=luminalib \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  postgres:16-alpine
+docker run -d --name luminalib-pg -e POSTGRES_DB=luminalib -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
+docker run -d --name luminalib-redis -p 6379:6379 redis:7-alpine
 ```
 
-### Step 2: Configure Environment Variables
-1. Create your `.env` file from the template:
-   ```bash
-   cp .env.example .env
-   ```
-2. Ensure the `DATABASE_URL` in `.env` points to your `localhost` accessible PostgreSQL instance:
-   ```env
-   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/luminalib
-   JWT_SECRET=your-secret-key
-   JWT_ALGORITHM=HS256
-   ```
+### Step 2: Configure Environment
+Copy `.env.example` to `.env` and verify database credentials:
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/luminalib
+REDIS_URL=redis://localhost:6379/0
+JWT_SECRET=your-secret-key-change-in-production
+JWT_ALGORITHM=HS256
+```
 
-*Note: In LuminaLib v1.0, application settings (LLM Provider, API Keys, Storage Settings) have been removed from the static `.env` file and migrated into a dynamic `app_configs` PostgreSQL system table.*
-
-### Step 3: Setup Python Environment
-1. Create a virtual environment:
-   ```bash
-   # Windows
-   python -m venv .venv
-   .venv\Scripts\activate
-
-   # macOS/Linux
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-2. Install the project in editable mode with development/testing dependencies:
-   ```bash
-   pip install -e ".[test,ml]"
-   ```
-
-### 📂 Backend Folder Structure Refresher
-Ensure you are operating in the correct environment boundaries. The backend application follows this layout:
+### Step 3: Setup Virtual Environment & Install Dependencies
 ```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install editable package with test & ML dependencies
+pip install -e ".[test,ml]"
+```
+
+### Step 4: Launch Development Server
+```bash
+uvicorn luminalib.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+---
+
+## 📂 Backend Project Structure
+
+```
 Lumina-backend/
 ├── luminalib/          # Main application package
-│   ├── api/            # Controller endpoints
-│   ├── core/           # Security, Configurations, Middleware
-│   ├── db/             # SQLAlchemy configurations
-│   ├── infrastructure/ # LLMs and Storage implementations
-│   ├── models/         # SQLAlchemy ORMs
-│   ├── repositories/   # DB interactions
-│   ├── schemas/        # Pydantic schemas
-│   └── services/       # Core business logic
-├── tests/              # All pytest implementations
-├── docs/               # Architecture/Setup guides
-├── .env.example        # Environment variable templating
-├── deploy.ps1          # Easy Windows deployment powershell helper
-└── docker-compose.yml  # Container compositions
+│   ├── api/v1/         # FastAPI router endpoints (auth, books, qa, reviews, ingestion, recommendations, users, voice, app_configs)
+│   ├── core/           # Security, config loading, logging, middleware
+│   ├── db/             # SQLAlchemy engine & session factory
+│   ├── infrastructure/ # LLM providers (Docker, OpenRouter, Ollama, OpenAI, Mock) & storage
+│   ├── models/         # SQLAlchemy ORM database models
+│   ├── repositories/   # Data-access repository layer
+│   ├── schemas/        # Pydantic validation schemas
+│   └── services/       # Core business logic (RAG pipeline, recommendation engine, review summarizer)
+├── tests/              # 34 pytest unit & integration test files
+├── pyproject.toml      # Package dependencies & build configuration
+└── Dockerfile          # Single-stage Python 3.11 image
 ```
-
-### Step 4: Run the Application
-1. Start the FastAPI development server using `uvicorn`:
-   ```bash
-   uvicorn luminalib.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-2. The server will start, automatically create the database tables, and seed the default admin user.
-3. Access the API documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ---
 
-## 🧪 Running Tests Locally
+## 🧪 Running Automated Backend Tests
 
-LuminaLib includes an automated test suite powered by `pytest`. Follow these steps to run the tests locally.
-
-### Prerequisites for Testing
-Ensure you have installed the test dependencies. If you haven't already:
-```bash
-pip install -e ".[test]"
-```
+LuminaLib backend tests are powered by `pytest` and `pytest-asyncio`, utilizing an isolated in-memory SQLite database and mocked LLM providers.
 
 ### Running the Test Suite
-1. **Run all tests:**
-   ```bash
-   pytest
-   ```
-   *Note: Our tests are configured to use an isolated async SQLite database or mocked dependencies, so they won't interfere with your main PostgreSQL database.*
 
-2. **Run tests with verbose output:**
-   ```bash
-   pytest -v
-   ```
+```bash
+cd Lumina-backend
 
-3. **Run a specific test file or directory:**
-   ```bash
-   pytest tests/services/
-   pytest tests/api/v1/endpoints/test_books.py
-   ```
+# Run all 34 test cases
+pytest
 
-4. **Run tests with coverage report:**
-   To see how much of your code is covered by tests, install `pytest-cov` and run:
-   ```bash
-   pip install pytest-cov
-   pytest --cov=luminalib --cov-report=term-missing
-   ```
-   Generate an HTML report:
-   ```bash
-   pytest --cov=luminalib --cov-report=html
-   # Open htmlcov/index.html in your browser
-   ```
+# Run with verbose test descriptions
+pytest -v
 
-### 🧪 Core Test Cases Covered
-- **Authentication**: Validating signup with constraints (e.g. valid email, strong password matching regex rules) and validating JWT generation via login routes.
-- **Book Workflows**: Tests for fetching list configurations, fetching individual books, file ingestions via Mock abstractions, updating metadata parameters, and standard deletion.
-- **Borrow Logic**: Asserting users can borrow books sequentially and confirming the toggle between unavailable/available states.
-- **Review Constraint Chains**: Checking if the system prevents users from reviewing unborrowed books, validating rating limits, and calculating the updated consensus.
-- **LLM/AI Abstractions**: Injecting Mocked Responses for checking the GenAI functionalities without actually utilizing OpenRouter or Local APIs over network loops.
+# Run with code coverage report
+pytest --cov=luminalib --cov-report=term-missing
+```
+
+### 🧪 Core Test Coverage (34 Passing Tests)
+
+1. **Authentication (`test_auth.py`)**: Signup validation (email format, 12-char strict password requirements), JWT generation, profile fetching/updates.
+2. **Books Management (`test_books.py`)**: Book CRUD operations, paginated queries, file upload ingestion mocks, metadata updates, deletion.
+3. **Borrow Lifecycle (`test_reviews_and_borrows.py`)**: Borrow and return workflows, availability state toggles, conflict checks.
+4. **Review System (`test_reviews_and_borrows.py`)**: Enforcing borrow-before-review constraint, rating range checks, rolling review consensus calculation.
+5. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling.
+6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, log scrubbing, available Kokoro voice listing, conversation transcript history management.
+7. **Dynamic App Configs (`test_config.py`, `test_docker_llm_provider.py`)**: Loading and updating `app_configs` table key-value pairs at runtime.
 
 ---
 
-## 🔍 Interacting with the Application (Quick Test Flow)
+## 🔍 API Testing Flow (Swagger UI)
 
-Once the application is running (via Docker or natively), you can test the core flows using Swagger UI or `curl`.
-
-1. **Login as Admin:**
-   - Go to `POST /api/v1/auth/login`
-   - Use `udit.rajput@hotmail.com` and `Admin@12345!`
-   - Copy the returned `access_token`.
-
-2. **Upload a Book:**
-   - Go to `POST /api/v1/books`
-   - Authorize using the token at the top of Swagger.
-   - Fill in the form metadata and upload a PDF file.
-
-3. **View AI Configuration:**
-   - Go to `GET /api/v1/config`
-   - See the currently active `llm_provider` and `storage_provider`. By default, this might be set to `mock` or `openrouter` depending on your seeded configuration.
-
-4. **Change Configuration (Runtime):**
-   - Go to `PUT /api/v1/config`
-   - Update `llm_provider` to `"openrouter"` and provide an `llm_api_key`.
-   - Subsequent AI operations will immediately utilize the newly provided infrastructure without requiring a server reboot!
-
-5. **View Live Server Telemetry:**
-   - Go to [http://localhost:3000/grafana/dashboards](http://localhost:3000/grafana/dashboards).
-   - See the real-time aggregated full-stack logs parsed by Loki explicitly proxied through the secure Next.js SSO Edge Middleware.
+1. **Login as Admin**: Call `POST /api/v1/auth/login` with `udit.rajput@hotmail.com` / `Admin@12345!` to obtain your JWT Bearer token.
+2. **Authorize**: Paste the token into the `Authorize` button at the top of Swagger (`http://localhost:8000/docs`).
+3. **Upload a Book**: Call `POST /api/v1/books` with metadata and attach a sample PDF file.
+4. **Q&A & Practice Questions**: Call `POST /api/v1/qa` with `{"question": "Ask me 5 questions on Python"}` to test topic practice question generation.
+5. **Dynamic App Settings**: Call `GET /api/v1/config` and `PUT /api/v1/config` to verify runtime configuration updates.

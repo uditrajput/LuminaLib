@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import {
     BookOpen, User, LogOut, LogIn, Sparkles, Brain, Library,
-    Menu, X, Home, Users, Settings, Activity
+    Menu, X, Home, Users, Settings, Activity, Mic
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useState } from "react";

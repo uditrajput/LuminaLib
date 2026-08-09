@@ -21,6 +21,9 @@ import { deleteBook } from "@/services/bookService";
 import { useRouter } from "next/navigation";
 import EditBookModal from "@/components/books/EditBookModal";
 import DeleteConfirmModal from "@/components/books/DeleteConfirmModal";
+import PDFReaderModal from "@/components/books/PDFReaderModal";
+import VoiceWidget from "@/components/voice/VoiceWidget";
+
 
 // Next.js 15 requires unwrapping params with `use()`
 interface PageProps { params: Promise<{ id: string }> }
@@ -34,6 +37,8 @@ export default function BookDetailPage({ params }: PageProps) {
     const isAdmin = user?.role === "admin";
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showPdfReader, setShowPdfReader] = useState(false);
+
 
     // ── Core book fetch ──────────────────────────────────────────────────────
     const { data: book, isLoading, isError, refetch } = useBook(id);
@@ -247,6 +252,14 @@ export default function BookDetailPage({ params }: PageProps) {
                                                     <BookCheck className="h-4 w-4" />
                                                     Currently borrowed
                                                 </div>
+                                                {/* Read PDF Button */}
+                                                <Button
+                                                    onClick={() => setShowPdfReader(true)}
+                                                    className="gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md hover:shadow-lg"
+                                                >
+                                                    <BookOpen className="h-4 w-4" />
+                                                    Read PDF Book
+                                                </Button>
                                                 {/* Return button */}
                                                 <Button
                                                     onClick={() => returnMut.mutate()}
@@ -258,6 +271,7 @@ export default function BookDetailPage({ params }: PageProps) {
                                                     Return Book
                                                 </Button>
                                             </>
+
                                         ) : (
                                             <>
                                                 {status === "returned" && (
@@ -463,6 +477,11 @@ export default function BookDetailPage({ params }: PageProps) {
                     isDeleting={deleteMut.isPending}
                 />
             )}
+
+            {showPdfReader && book && (
+                <PDFReaderModal book={book} onClose={() => setShowPdfReader(false)} />
+            )}
         </DashboardLayout>
     );
 }
+

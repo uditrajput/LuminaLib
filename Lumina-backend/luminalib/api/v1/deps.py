@@ -24,11 +24,13 @@ from luminalib.repositories.document_repository import DocumentRepository
 from luminalib.repositories.review_repository import ReviewRepository
 from luminalib.repositories.user_repository import UserRepository
 from luminalib.repositories.app_config_repository import AppConfigRepository
+from luminalib.repositories.voice_repository import VoiceRepository
 from luminalib.services.auth_service import AuthService
 from luminalib.services.book_service import BookService
 from luminalib.services.config_service import ConfigService
 from luminalib.services.review_service import ReviewService
 from luminalib.services.app_config_service import AppConfigService
+from luminalib.services.voice_service import VoiceService
 
 logger = logging.getLogger("luminalib.api.deps")
 bearer_scheme = HTTPBearer()
@@ -167,3 +169,13 @@ async def get_app_config_service(
     repo: AppConfigRepository = Depends(get_app_config_repo),
 ) -> AppConfigService:
     return AppConfigService(repo)
+
+
+def get_voice_repo(session: AsyncSession = Depends(get_db)) -> VoiceRepository:
+    return VoiceRepository(session)
+
+
+async def get_voice_service(
+    session: AsyncSession = Depends(get_db),
+) -> VoiceService:
+    return VoiceService(session)

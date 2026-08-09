@@ -11,10 +11,12 @@ import * as z from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AppConfig } from "@/types/appConfig";
+import voiceService, { KokoroVoice, VoicePreferences } from "@/services/voiceService";
+import { cn } from "@/lib/utils";
 import {
     Settings, Search, Plus, Edit3, X, CheckCircle2,
     AlertCircle, FileText, Settings2, Key, Database,
-    Cpu, Server, Cloud, Zap, ChevronDown
+    Cpu, Server, Cloud, Zap, ChevronDown, Mic, Volume2, RefreshCw, Globe
 } from "lucide-react";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -39,8 +41,10 @@ const LLM_PROVIDERS = [
     { value: "docker", label: "Docker Model Runner", icon: <Server className="h-4 w-4" />, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30", desc: "Uses Docker Desktop's built-in model serving" },
     { value: "openrouter", label: "OpenRouter", icon: <Zap className="h-4 w-4" />, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30", desc: "Route to 200+ LLMs via OpenRouter API" },
     { value: "ollama", label: "Ollama", icon: <Cpu className="h-4 w-4" />, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30", desc: "Local models via Ollama on your machine" },
-    { value: "openai", label: "OpenAI", icon: <Cloud className="h-4 w-4" />, color: "text-slate-800 dark:text-slate-200", bg: "bg-slate-100 dark:bg-slate-700/50", desc: "GPT-4o, GPT-4o-mini via OpenAI API" },
+    { value: "openai", label: "OpenAI Direct", icon: <Cloud className="h-4 w-4" />, color: "text-slate-800 dark:text-slate-200", bg: "bg-slate-100 dark:bg-slate-700/50", desc: "GPT-4o, GPT-4o-mini via OpenAI API" },
     { value: "mock", label: "Mock (Testing)", icon: <Settings className="h-4 w-4" />, color: "text-slate-500 dark:text-slate-400", bg: "bg-slate-50 dark:bg-slate-800", desc: "Returns placeholder responses for testing" },
+    { isDivider: true, label: "OPEN API / CUSTOM OPENAI COMPATIBLE PROVIDERS" },
+    { value: "openai_custom", label: "OpenAI-Compatible Custom API", icon: <Globe className="h-4 w-4" />, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30", desc: "Connect NVIDIA API Catalog, vLLM, DeepSeek, Groq, LM Studio, etc." },
 ];
 
 // Map which config keys belong to which provider
@@ -49,6 +53,7 @@ const PROVIDER_CONFIG_KEYS: Record<string, string[]> = {
     ollama: ["ollama_base_url", "ollama_model"],
     openai: ["openai_api_key", "openai_model"],
     docker: ["docker_model", "docker_base_url"],
+    openai_custom: ["openai_custom_base_url", "openai_custom_api_key", "openai_custom_model"],
     mock: [],
 };
 
@@ -59,6 +64,7 @@ const HIDDEN_KEYS = new Set([
     "ollama_base_url", "ollama_model",
     "openai_api_key", "openai_model",
     "docker_model", "docker_base_url",
+    "openai_custom_base_url", "openai_custom_api_key", "openai_custom_model",
     "admin_email", "admin_password",
 ]);
 
@@ -98,7 +104,7 @@ function LLMProviderPanel({ configs, onConfigUpdate }: {
 }) {
     const update = useUpdateAppConfig();
 
-    // Find current provider value
+    const [isSectionOpen, setIsSectionOpen] = useState(false); // Default CLOSED (hide)
     const providerConfig = configs.find(c => c.key === "llm_provider");
     const currentProvider = providerConfig?.value || "docker";
     const [selectedProvider, setSelectedProvider] = useState(currentProvider);
@@ -146,137 +152,394 @@ function LLMProviderPanel({ configs, onConfigUpdate }: {
     const relevantKeys = PROVIDER_CONFIG_KEYS[selectedProvider] || [];
 
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative z-20">
             {/* Header */}
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${currentMeta.bg} ${currentMeta.color}`}>
-                    <Cpu className="h-5 w-5" />
+            <div
+                onClick={() => setIsSectionOpen(!isSectionOpen)}
+                className={cn(
+                    "px-6 py-5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors rounded-t-2xl",
+                    isSectionOpen ? "border-b border-slate-100 dark:border-slate-700" : "rounded-b-2xl"
+                )}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${currentMeta.bg} ${currentMeta.color}`}>
+                        <Cpu className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100">LLM Provider</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Choose which AI model backend powers your LuminaLib intelligence.</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 className="font-bold text-slate-900 dark:text-slate-100">LLM Provider</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Choose which AI model backend powers your LuminaLib intelligence.</p>
+                <div className="flex items-center gap-2 text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                        {isSectionOpen ? "Hide" : "Show"}
+                    </span>
+                    <ChevronDown className={cn("h-5 w-5 transition-transform duration-200", isSectionOpen && "rotate-180")} />
                 </div>
             </div>
 
-            <div className="p-6 space-y-6">
-                {/* Provider selector */}
-                <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                        Active Provider
-                    </label>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setShowDropdown(!showDropdown)}
-                            className="w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 text-sm font-medium text-slate-900 dark:text-slate-100 hover:border-blue-400 dark:hover:border-blue-500 transition-all"
-                        >
-                            <span className="flex items-center gap-3">
-                                <span className={`p-1.5 rounded-lg ${currentMeta.bg} ${currentMeta.color}`}>
-                                    {currentMeta.icon}
+            {isSectionOpen && (
+                <div className="p-6 space-y-6 animate-fade-in">
+                    {/* Provider selector */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                            Active Provider
+                        </label>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowDropdown(!showDropdown)}
+                                className="w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 text-sm font-medium text-slate-900 dark:text-slate-100 hover:border-blue-400 dark:hover:border-blue-500 transition-all"
+                            >
+                                <span className="flex items-center gap-3">
+                                    <span className={`p-1.5 rounded-lg ${currentMeta.bg} ${currentMeta.color}`}>
+                                        {currentMeta.icon}
+                                    </span>
+                                    <span>
+                                        <span className="block text-left">{currentMeta.label}</span>
+                                        <span className="block text-[11px] text-slate-400 dark:text-slate-500 text-left">{currentMeta.desc}</span>
+                                    </span>
                                 </span>
-                                <span>
-                                    <span className="block text-left">{currentMeta.label}</span>
-                                    <span className="block text-[11px] text-slate-400 dark:text-slate-500 text-left">{currentMeta.desc}</span>
-                                </span>
-                            </span>
-                            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
-                        </button>
+                                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
+                            </button>
 
-                        {showDropdown && (
-                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in">
-                                {LLM_PROVIDERS.map((p) => (
-                                    <button
-                                        key={p.value}
-                                        type="button"
-                                        onClick={() => handleProviderChange(p.value)}
-                                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50 ${selectedProvider === p.value ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
-                                    >
-                                        <span className={`p-1.5 rounded-lg ${p.bg} ${p.color}`}>
-                                            {p.icon}
-                                        </span>
-                                        <span className="flex-1 min-w-0">
-                                            <span className="block font-medium text-slate-900 dark:text-slate-100">{p.label}</span>
-                                            <span className="block text-[11px] text-slate-400 dark:text-slate-500">{p.desc}</span>
-                                        </span>
-                                        {selectedProvider === p.value && (
-                                            <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+                            {showDropdown && (
+                                <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-72 overflow-y-auto animate-fade-in">
+                                    {LLM_PROVIDERS.map((p, idx) => {
+                                        if ('isDivider' in p && p.isDivider) {
+                                            return (
+                                                <div key={`divider-${idx}`} className="px-4 py-2 border-t border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+                                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase">
+                                                        {p.label}
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <button
+                                                key={p.value}
+                                                type="button"
+                                                onClick={() => handleProviderChange(p.value!)}
+                                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-700/50 ${selectedProvider === p.value ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                                            >
+                                                <span className={`p-1.5 rounded-lg ${p.bg} ${p.color}`}>
+                                                    {p.icon}
+                                                </span>
+                                                <span className="flex-1 min-w-0">
+                                                    <span className="block font-medium text-slate-900 dark:text-slate-100">{p.label}</span>
+                                                    <span className="block text-[11px] text-slate-400 dark:text-slate-500">{p.desc}</span>
+                                                </span>
+                                                {selectedProvider === p.value && (
+                                                    <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                        {saving && (
+                            <p className="text-xs text-blue-500 flex items-center gap-1.5">
+                                <span className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                                Saving…
+                            </p>
                         )}
                     </div>
-                    {saving && (
-                        <p className="text-xs text-blue-500 flex items-center gap-1.5">
-                            <span className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-                            Saving…
-                        </p>
+
+                    {/* Provider-specific config fields */}
+                    {relevantKeys.length > 0 && (
+                        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                {currentMeta.label} Configuration
+                            </p>
+                            {relevantKeys.map((key) => {
+                                const cfg = configs.find(c => c.key === key);
+                                const isSecret = key.includes("api_key") || key.includes("secret");
+                                const displayValue = cfg?.value || "";
+                                const isEditing = editingKey === key;
+
+                                return (
+                                    <div key={key} className="flex items-center gap-3 group">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                                {key}
+                                            </p>
+                                            {isEditing ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type={isSecret ? "password" : "text"}
+                                                        value={editValue}
+                                                        onChange={(e) => setEditValue(e.target.value)}
+                                                        className="h-9 rounded-lg text-sm flex-1"
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        onClick={() => handleFieldSave(key)}
+                                                        disabled={saving}
+                                                        className="h-9 px-3 rounded-lg text-xs gap-1 bg-blue-600 text-white hover:bg-blue-700"
+                                                    >
+                                                        <CheckCircle2 className="h-3 w-3" /> Save
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => setEditingKey(null)}
+                                                        className="h-9 px-3 rounded-lg text-xs"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 flex-1 truncate">
+                                                        {isSecret && displayValue ? "••••••••••••••" : (displayValue || "—")}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => { setEditingKey(key); setEditValue(displayValue); }}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title={`Edit ${key}`}
+                                                    >
+                                                        <Edit3 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
+            )}
+        </div>
+    );
+}
 
-                {/* Provider-specific config fields */}
-                {relevantKeys.length > 0 && (
-                    <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                            {currentMeta.label} Configuration
-                        </p>
-                        {relevantKeys.map((key) => {
-                            const cfg = configs.find(c => c.key === key);
-                            const isSecret = key.includes("api_key") || key.includes("secret");
-                            const displayValue = cfg?.value || "";
-                            const isEditing = editingKey === key;
+// ── Voice Settings Panel ──────────────────────────────────────────────────────
 
-                            return (
-                                <div key={key} className="flex items-center gap-3 group">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                            {key}
-                                        </p>
-                                        {isEditing ? (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type={isSecret ? "password" : "text"}
-                                                    value={editValue}
-                                                    onChange={(e) => setEditValue(e.target.value)}
-                                                    className="h-9 rounded-lg text-sm flex-1"
-                                                    autoFocus
-                                                />
-                                                <Button
-                                                    onClick={() => handleFieldSave(key)}
-                                                    disabled={saving}
-                                                    className="h-9 px-3 rounded-lg text-xs gap-1 bg-blue-600 text-white hover:bg-blue-700"
-                                                >
-                                                    <CheckCircle2 className="h-3 w-3" /> Save
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => setEditingKey(null)}
-                                                    className="h-9 px-3 rounded-lg text-xs"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 flex-1 truncate">
-                                                    {isSecret && displayValue ? "••••••••••••••" : (displayValue || "—")}
-                                                </p>
-                                                <button
-                                                    onClick={() => { setEditingKey(key); setEditValue(displayValue); }}
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors opacity-0 group-hover:opacity-100"
-                                                    title={`Edit ${key}`}
-                                                >
-                                                    <Edit3 className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
+function VoiceSettingsPanel() {
+    const [isSectionOpen, setIsSectionOpen] = useState(false); // Default CLOSED
+    const [voices, setVoices] = useState<KokoroVoice[]>([]);
+    const [initialPrefs, setInitialPrefs] = useState<VoicePreferences | null>(null);
+    const [prefs, setPrefs] = useState<VoicePreferences>({
+        voice: "af_bella",
+        speed: 1.0,
+        language: "a",
+        auto_play: true,
+        show_transcript: true,
+    });
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [savedMsg, setSavedMsg] = useState(false);
+    const [testingVoice, setTestingVoice] = useState<string | null>(null);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [vList, pData] = await Promise.all([
+                    voiceService.getVoices(),
+                    voiceService.getPreferences(),
+                ]);
+                setVoices(vList);
+                if (pData) {
+                    setPrefs(pData);
+                    setInitialPrefs(pData);
+                }
+            } catch (err) {
+                console.error("Failed to load voice preferences:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
+    }, []);
+
+    const isChanged = Boolean(
+        initialPrefs && (
+            prefs.voice !== initialPrefs.voice ||
+            prefs.speed !== initialPrefs.speed ||
+            prefs.auto_play !== initialPrefs.auto_play ||
+            prefs.show_transcript !== initialPrefs.show_transcript
+        )
+    );
+
+    const handleTestSample = async (voiceCode: string) => {
+        setTestingVoice(voiceCode);
+        try {
+            await voiceService.playVoiceSample(voiceCode, prefs.speed);
+        } catch (err) {
+            console.error("Failed to test voice sample:", err);
+        } finally {
+            setTestingVoice(null);
+        }
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isChanged) return;
+        setSaving(true);
+        try {
+            const updated = await voiceService.updatePreferences(prefs);
+            setPrefs(updated);
+            setInitialPrefs(updated);
+            setSavedMsg(true);
+            setTimeout(() => setSavedMsg(false), 3000);
+        } catch (err) {
+            console.error("Failed to save voice preferences:", err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div
+                onClick={() => setIsSectionOpen(!isSectionOpen)}
+                className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors flex-wrap gap-3"
+            >
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                        <Mic className="h-5 w-5" />
                     </div>
-                )}
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100">Voice Assistant & Speech Settings</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Configure Kokoro TTS voice packs, speech rates, and audio controls.</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    {isSectionOpen && (
+                        <Button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleTestSample(prefs.voice); }}
+                            disabled={!!testingVoice}
+                            variant="outline"
+                            className="h-9 px-3.5 rounded-xl text-xs gap-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold"
+                        >
+                            {testingVoice === prefs.voice ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+                            Test Active Voice
+                        </Button>
+                    )}
+                    <div className="flex items-center gap-2 text-slate-400">
+                        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                            {isSectionOpen ? "Hide" : "Show"}
+                        </span>
+                        <ChevronDown className={cn("h-5 w-5 transition-transform duration-200", isSectionOpen && "rotate-180")} />
+                    </div>
+                </div>
             </div>
+
+            {isSectionOpen && (
+                <form onSubmit={handleSave} className="p-6 space-y-5 animate-fade-in">
+                    {savedMsg && <StatusAlert type="success" msg="Voice assistant preferences saved successfully!" />}
+
+                    {loading ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
+                            <RefreshCw className="h-4 w-4 animate-spin" /> Loading voice options...
+                        </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                                    Kokoro TTS Voice Model
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                    {voices.map((v) => (
+                                        <div
+                                            key={v.code}
+                                            onClick={() => setPrefs({ ...prefs, voice: v.code })}
+                                            className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between ${
+                                                prefs.voice === v.code
+                                                    ? "bg-purple-50 dark:bg-purple-900/30 border-purple-500 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/30"
+                                                    : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-300"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <Volume2 className={`h-4 w-4 shrink-0 ${prefs.voice === v.code ? "text-purple-500" : "text-slate-400"}`} />
+                                                <div className="truncate">
+                                                    <div className="font-semibold text-xs truncate">{v.name}</div>
+                                                    <div className="text-[10px] text-slate-400">{v.gender} • {v.language}</div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); handleTestSample(v.code); }}
+                                                title={`Listen sample for ${v.name}`}
+                                                className="p-1.5 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-600 dark:text-purple-300 transition-colors ml-1"
+                                            >
+                                                {testingVoice === v.code ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                                <div>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Speech Speed Rate</label>
+                                        <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">{prefs.speed}x</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.5"
+                                        max="2.0"
+                                        step="0.1"
+                                        value={prefs.speed}
+                                        onChange={(e) => setPrefs({ ...prefs, speed: parseFloat(e.target.value) })}
+                                        className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-4 pt-2">
+                                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={prefs.auto_play}
+                                            onChange={(e) => setPrefs({ ...prefs, auto_play: e.target.checked })}
+                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        Auto-play Voice Responses
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={prefs.show_transcript}
+                                            onChange={(e) => setPrefs({ ...prefs, show_transcript: e.target.checked })}
+                                            className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        Live Transcript Bubbles
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="pt-2 flex justify-end gap-3">
+                                <Button
+                                    type="button"
+                                    onClick={() => handleTestSample(prefs.voice)}
+                                    disabled={!!testingVoice}
+                                    variant="outline"
+                                    className="h-9 px-4 rounded-xl text-xs gap-1.5"
+                                >
+                                    {testingVoice === prefs.voice ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+                                    Listen Sample
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={saving || !isChanged}
+                                    className={cn(
+                                        "h-9 px-4 rounded-xl text-xs gap-1.5 transition-all font-semibold",
+                                        !isChanged || saving
+                                            ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border-transparent shadow-none"
+                                            : "bg-purple-600 text-white hover:bg-purple-700 shadow-sm"
+                                    )}
+                                >
+                                    {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                    Save Voice Settings
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                </form>
+            )}
         </div>
     );
 }
@@ -393,6 +656,7 @@ export default function AppConfigPage() {
     const router = useRouter();
 
     const [search, setSearch] = useState("");
+    const [isGeneralOpen, setIsGeneralOpen] = useState(true);
     const [modal, setModal] = useState<{ mode: "create" | "edit"; config?: AppConfig } | null>(null);
     const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
@@ -448,9 +712,128 @@ export default function AppConfigPage() {
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage application-wide key-value configurations replacing .env setups dynamically.</p>
                     </div>
-                    <Button onClick={() => setModal({ mode: "create" })} className="h-10 px-5 rounded-xl gap-2 shadow-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 hover:text-white transition-all">
-                        <Plus className="h-4 w-4" /> Add Config
-                    </Button>
+                </div>
+
+                {/* General Configurations */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div
+                        onClick={() => setIsGeneralOpen(!isGeneralOpen)}
+                        className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors flex-wrap gap-3"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                                <Database className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 dark:text-slate-100">General Configurations</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Search and manage custom key-value application properties.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {isGeneralOpen && (
+                                <Button
+                                    onClick={(e) => { e.stopPropagation(); setModal({ mode: "create" }); }}
+                                    className="h-9 px-4 rounded-xl text-xs gap-1.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 hover:text-white transition-all shadow-sm"
+                                >
+                                    <Plus className="h-3.5 w-3.5" /> Add Config
+                                </Button>
+                            )}
+                            <div className="flex items-center gap-2 text-slate-400">
+                                <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                                    {isGeneralOpen ? "Hide" : "Show"}
+                                </span>
+                                <ChevronDown className={cn("h-5 w-5 transition-transform duration-200", isGeneralOpen && "rotate-180")} />
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {isGeneralOpen && (
+                        <div className="animate-fade-in">
+                            <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-wrap gap-3 items-center">
+                                <div className="relative flex-1 min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <input
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        placeholder="Search general settings by key or description…"
+                                        className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700/50 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {listQuery.isLoading ? (
+                                <div className="p-8 space-y-4">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="flex items-center gap-4 animate-pulse">
+                                            <div className="h-10 w-10 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0" />
+                                            <div className="flex-1 space-y-2">
+                                                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                                                <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-1/3" />
+                                            </div>
+                                            <div className="h-8 w-20 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : listQuery.isError ? (
+                                <div className="p-12 text-center">
+                                    <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+                                    <p className="text-slate-500 dark:text-slate-400">Failed to load configuration keys.</p>
+                                </div>
+                            ) : generalItems.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <Database className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                                    <p className="font-semibold text-slate-600 dark:text-slate-400">No configs found</p>
+                                    <p className="text-sm text-slate-400 mt-1">Try adjusting your search criteria.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-[1fr_1.5fr_1.5fr_auto] gap-x-4 px-6 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                                        <span>Key Name</span>
+                                        <span>Value</span>
+                                        <span>Description</span>
+                                        <span className="w-16 text-right">Actions</span>
+                                    </div>
+
+                                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                                        {generalItems.map((c) => (
+                                            <div key={c.id} className="grid grid-cols-[1fr_1.5fr_1.5fr_auto] gap-x-4 items-center px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+                                                <div className="min-w-0">
+                                                    <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 tracking-tight truncate border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-block">
+                                                        {c.key}
+                                                    </p>
+                                                </div>
+                                                <div className="min-w-0 pr-4">
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 truncate bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                        {c.key.toLowerCase().includes("password") || c.key.toLowerCase().includes("secret") || c.key.toLowerCase().includes("api_key") ? "••••••••••••••••" : c.value}
+                                                    </p>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 truncate italic">
+                                                        {c.description || "—"}
+                                                    </p>
+                                                </div>
+                                                <div className="w-16 flex justify-end gap-1">
+                                                    <button
+                                                        onClick={() => setModal({ mode: "edit", config: c })}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                                        title="Edit configuration"
+                                                    >
+                                                        <Edit3 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* LLM Provider Panel */}
@@ -459,91 +842,8 @@ export default function AppConfigPage() {
                     onConfigUpdate={handleLLMUpdate}
                 />
 
-                {/* General Configuration */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex flex-wrap gap-3 items-center">
-                    <div className="relative flex-1 min-w-[200px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="Search general settings by key or description…"
-                            className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                        />
-                        {search && (
-                            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                <X className="h-3.5 w-3.5" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                    {listQuery.isLoading ? (
-                        <div className="p-8 space-y-4">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="flex items-center gap-4 animate-pulse">
-                                    <div className="h-10 w-10 rounded-xl bg-slate-200 dark:bg-slate-700 shrink-0" />
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
-                                        <div className="h-3 bg-slate-100 dark:bg-slate-700/50 rounded w-1/3" />
-                                    </div>
-                                    <div className="h-8 w-20 bg-slate-100 dark:bg-slate-700 rounded-lg" />
-                                </div>
-                            ))}
-                        </div>
-                    ) : listQuery.isError ? (
-                        <div className="p-12 text-center">
-                            <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
-                            <p className="text-slate-500 dark:text-slate-400">Failed to load configuration keys.</p>
-                        </div>
-                    ) : generalItems.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <Database className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                            <p className="font-semibold text-slate-600 dark:text-slate-400">No configs found</p>
-                            <p className="text-sm text-slate-400 mt-1">Try adjusting your search criteria.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="grid grid-cols-[1fr_1.5fr_1.5fr_auto] gap-x-4 px-6 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                                <span>Key Name</span>
-                                <span>Value</span>
-                                <span>Description</span>
-                                <span className="w-16 text-right">Actions</span>
-                            </div>
-
-                            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                                {generalItems.map((c) => (
-                                    <div key={c.id} className="grid grid-cols-[1fr_1.5fr_1.5fr_auto] gap-x-4 items-center px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
-                                        <div className="min-w-0">
-                                            <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 tracking-tight truncate border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-block">
-                                                {c.key}
-                                            </p>
-                                        </div>
-                                        <div className="min-w-0 pr-4">
-                                            <p className="text-sm text-slate-600 dark:text-slate-400 truncate bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
-                                                {c.key.toLowerCase().includes("password") || c.key.toLowerCase().includes("secret") || c.key.toLowerCase().includes("api_key") ? "••••••••••••••••" : c.value}
-                                            </p>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm text-slate-500 dark:text-slate-400 truncate italic">
-                                                {c.description || "—"}
-                                            </p>
-                                        </div>
-                                        <div className="w-16 flex justify-end gap-1">
-                                            <button
-                                                onClick={() => setModal({ mode: "edit", config: c })}
-                                                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                                                title="Edit configuration"
-                                            >
-                                                <Edit3 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
+                {/* Voice Assistant & Speech Settings Panel */}
+                <VoiceSettingsPanel />
 
             </div>
 

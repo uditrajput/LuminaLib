@@ -59,6 +59,15 @@ async def get_llm_provider(
             return DirectOpenAIProvider(api_key=api_key, model=model)
         logger.warning("OpenAI provider selected but no API key found — falling back to mock")
 
+    if provider in ("openai_custom", "openai_compatible"):
+        api_key = api_key_override or get_dynamic("openai_custom_api_key")
+        model = model_override or get_dynamic("openai_custom_model", "z-ai/glm-5.2")
+        base_url = base_url_override or get_dynamic("openai_custom_base_url", "https://integrate.api.nvidia.com/v1")
+        if api_key:
+            logger.info("Using OpenAI-Compatible Custom LLM provider (model=%s, url=%s)", model, base_url)
+            return DirectOpenAIProvider(api_key=api_key, model=model, base_url=base_url)
+        logger.warning("OpenAI-Compatible Custom provider selected but no API key found — falling back to mock")
+
     if provider == "http":
         base_url = base_url_override or get_dynamic("llm_base_url")
         api_key = api_key_override or get_dynamic("llm_api_key")

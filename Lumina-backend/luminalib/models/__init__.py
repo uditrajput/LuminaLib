@@ -12,6 +12,8 @@ from luminalib.models.review import Review
 from luminalib.models.role import Role
 from luminalib.models.system_config import SystemConfig
 from luminalib.models.user import User
+from luminalib.models.voice_conversation import VoiceConversation
+from luminalib.models.voice_turn import VoiceTurn
 
 __all__ = [
     "AppConfig",
@@ -26,4 +28,6 @@ __all__ = [
     "SystemConfig",
     "User",
     "UserPreference",
+    "VoiceConversation",
+    "VoiceTurn",
 ]

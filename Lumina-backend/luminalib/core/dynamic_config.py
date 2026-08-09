@@ -37,6 +37,10 @@ DEFAULTS: Dict[str, tuple[str, str]] = {
     # OpenAI
     "openai_api_key":             ("",                                                  "OpenAI API key"),
     "openai_model":               ("gpt-4o-mini",                                      "OpenAI model identifier"),
+    # OpenAI-Compatible Custom / OPEN API
+    "openai_custom_base_url":     ("https://integrate.api.nvidia.com/v1",              "OpenAI-Compatible Custom API base URL (e.g. NVIDIA, vLLM, DeepSeek)"),
+    "openai_custom_api_key":      ("",                                                 "OpenAI-Compatible Custom API key"),
+    "openai_custom_model":        ("z-ai/glm-5.2",                                     "OpenAI-Compatible Custom model identifier"),
     # General
     "cors_origins":               ('["http://localhost:3000","http://localhost:5173"]',  "Allowed CORS origins (JSON array)"),
     "storage_provider":           ("local",                                            "Storage provider: local | s3"),

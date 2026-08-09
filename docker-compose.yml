@@ -71,6 +71,36 @@ services:
     volumes:
       - ./Lumina-backend/storage:/app/storage
 
+  # ── Voice AI Assistant (FastAPI + Pipecat / Kokoro / Whisper) ─────────────────
+  voice:
+    build:
+      context: ./Lumina-voice
+      dockerfile: Dockerfile
+    container_name: luminalib-voice
+    restart: unless-stopped
+    networks:
+      - lumina-net
+    ports:
+      - "8001:8001"
+    environment:
+      - STT_PROVIDER=whisper-local
+      - WHISPER_MODEL=base
+      - KOKORO_VOICE=af_bella
+      - KOKORO_LANG=a
+      - LUMINA_API_URL=http://backend:8000/api/v1
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/luminalib
+      - JWT_SECRET=change-me-in-production
+      - JWT_ALGORITHM=HS256
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+    volumes:
+      - ./Lumina-voice/models:/app/models
+      - ./Lumina-backend/storage:/app/storage:ro
+    depends_on:
+      - backend
+      - redis
+      - postgres
+
   # ── Next.js Frontend ──────────────────────────────────────────────────────────
   frontend:
     build:
@@ -85,11 +115,13 @@ services:
     environment:
       # Points to the host machine so browser requests reach the backend
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_VOICE_WS_URL: ws://localhost:8001/voice/ws
       NODE_ENV: production
       # Push logs to Loki directly
       LOKI_URL: http://loki:3100
     depends_on:
       - backend
+      - voice
 
   # ── Logging & Monitoring (Production Grade) ──────────────────────────────────
   loki:

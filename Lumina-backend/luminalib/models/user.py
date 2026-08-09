@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from luminalib.models.base_audit_model import AuditBase
@@ -21,5 +21,16 @@ class User(AuditBase):
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    voice_preferences: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+        default=lambda: {
+            "voice": "af_bella",
+            "speed": 1.0,
+            "language": "a",
+            "auto_play": True,
+            "show_transcript": True,
+        },
+    )
 
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="selectin")
