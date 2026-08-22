@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 import re
 
@@ -38,6 +38,47 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     bio: str | None = None
     avatar_url: str | None = None
+    profile_completed: bool | None = None
+    dob: str | None = None
+    profession: str | None = None
+    hobbies: list[str] | None = None
+    interests: list[str] | None = None
+    favorite_topics: list[str] | None = None
+    favorite_genres: list[str] | None = None
+    reading_preferences: list[str] | None = None
+    preferred_language: str | None = None
+    education_records: list[dict] | None = None
+    contact_info: dict | None = None
+
+    @model_validator(mode="after")
+    def validate_age_profession(self) -> UserUpdate:
+        if self.dob and self.dob.strip():
+            try:
+                birth_date = datetime.strptime(self.dob[:10], "%Y-%m-%d")
+                current_year = datetime.now().year
+                age = current_year - birth_date.year
+                profession = self.profession or ""
+
+                min_age = 5
+                if profession in ["Working Professional", "Self-Employed", "Self-employed", "Business Owner"]:
+                    min_age = 15
+                elif profession in ["Student", "Other"]:
+                    min_age = 5
+                else:
+                    min_age = 5
+
+                if age < min_age:
+                    label = profession if profession else "User"
+                    raise ValueError(f"{label} age cannot be less than {min_age} years")
+            except (ValueError, TypeError) as e:
+                if "cannot be less than" in str(e):
+                    raise e
+        if self.contact_info and isinstance(self.contact_info, dict):
+            primary = str(self.contact_info.get("primary_mobile") or "").strip()
+            secondary = str(self.contact_info.get("secondary_mobile") or "").strip()
+            if primary and secondary and primary == secondary:
+                raise ValueError("Secondary mobile number cannot be the same as primary mobile number")
+        return self
 
 
 class AdminUserUpdate(BaseModel):
@@ -49,7 +90,28 @@ class AdminUserUpdate(BaseModel):
     avatar_url: str | None = None
     role: str | None = None
     is_active: bool | None = None
+    is_locked: bool | None = None
+    profile_completed: bool | None = None
+    dob: str | None = None
+    profession: str | None = None
+    hobbies: list[str] | None = None
+    interests: list[str] | None = None
+    favorite_topics: list[str] | None = None
+    favorite_genres: list[str] | None = None
+    reading_preferences: list[str] | None = None
+    preferred_language: str | None = None
+    education_records: list[dict] | None = None
+    contact_info: dict | None = None
     new_password: str | None = Field(default=None, min_length=8)
+
+    @model_validator(mode="after")
+    def validate_contact_info(self) -> AdminUserUpdate:
+        if self.contact_info and isinstance(self.contact_info, dict):
+            primary = str(self.contact_info.get("primary_mobile") or "").strip()
+            secondary = str(self.contact_info.get("secondary_mobile") or "").strip()
+            if primary and secondary and primary == secondary:
+                raise ValueError("Secondary mobile number cannot be the same as primary mobile number")
+        return self
 
 
 class PasswordChange(BaseModel):
@@ -66,9 +128,21 @@ class UserRead(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    is_locked: bool
     full_name: str | None = None
     bio: str | None = None
     avatar_url: str | None = None
+    profile_completed: bool = False
+    dob: str | None = None
+    profession: str | None = None
+    hobbies: list[str] | None = None
+    interests: list[str] | None = None
+    favorite_topics: list[str] | None = None
+    favorite_genres: list[str] | None = None
+    reading_preferences: list[str] | None = None
+    preferred_language: str | None = None
+    education_records: list[dict] | None = None
+    contact_info: dict | None = None
     created_by: str | None = None
     created_date: datetime
     updated_by: str | None = None
@@ -101,5 +175,24 @@ class UserStats(BaseModel):
     admins: int
     regular_users: int
     newest_user_email: str | None = None
+
+
+class BorrowedBookInfo(BaseModel):
+    book_id: int
+    title: str
+    author: str | None = None
+    cover_image_url: str | None = None
+    borrowed_at: datetime
+    returned_at: datetime | None = None
+
+
+class UserDashboardMetrics(BaseModel):
+    """Metrics for the user dashboard."""
+
+    total_borrowed: int
+    currently_borrowed: int
+    returned: int
+    active_borrows: list[BorrowedBookInfo] = []
+    recent_returns: list[BorrowedBookInfo] = []
 
 

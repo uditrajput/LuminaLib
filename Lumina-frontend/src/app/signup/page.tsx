@@ -61,7 +61,7 @@ export default function SignupPage() {
 
     useEffect(() => {
         if (!isLoading && isAuthenticated) {
-            router.push("/books");
+            router.push("/dashboard");
         }
     }, [isLoading, isAuthenticated, router]);
 

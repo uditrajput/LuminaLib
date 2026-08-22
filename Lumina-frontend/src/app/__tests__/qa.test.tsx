@@ -1,11 +1,20 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import QAPage from "../qa/page";
-import { askQuestion } from "@/services/qaService";
+import { askQuestion, getChatSessions, createChatSession, getSessionDetail } from "@/services/qaService";
 import "@testing-library/jest-dom";
 
 // Mock services
-jest.mock("@/services/qaService");
+jest.mock("@/services/qaService", () => ({
+    askQuestion: jest.fn(),
+    askQuestionInSession: jest.fn(),
+    getChatSessions: jest.fn().mockResolvedValue([]),
+    createChatSession: jest.fn(),
+    getSessionDetail: jest.fn(),
+    renameChatSession: jest.fn(),
+    deleteChatSession: jest.fn(),
+    toggleSaveMessage: jest.fn(),
+}));
 jest.mock("@/components/layout/DashboardLayout", () => {
     return ({ children }: { children: React.ReactNode }) => <div data-testid="layout">{children}</div>;
 });

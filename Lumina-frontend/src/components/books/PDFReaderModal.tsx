@@ -9,7 +9,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import axios from "axios";
+import apiClient from "@/services/apiClient";
+
+// Add Promise.withResolvers polyfill for pdfjs-dist@4
+if (typeof window !== 'undefined' && typeof (Promise as any).withResolvers === 'undefined') {
+    (Promise as any).withResolvers = function () {
+        let resolve, reject;
+        const promise = new Promise((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+        return { promise, resolve, reject };
+    };
+}
 
 // Configure pdfjs worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -281,10 +293,8 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
 
         const fetchPdf = async () => {
             try {
-                const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-                const response = await axios.get(`http://localhost:8000/api/v1/books/${book.id}/file`, {
+                const response = await apiClient.get(`/books/${book.id}/file`, {
                     responseType: "arraybuffer",
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
 
                 const loadingTask = pdfjs.getDocument({ data: new Uint8Array(response.data) });
@@ -297,7 +307,23 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
             } catch (err: any) {
                 if (!isMounted) return;
                 console.error("Error loading PDF:", err);
-                setError(err?.response?.data?.detail || err?.message || "Failed to load PDF document.");
+                
+                let errorMessage = err?.message || "Failed to load PDF document.";
+                if (err?.response?.data instanceof ArrayBuffer) {
+                    try {
+                        const decodedString = new TextDecoder().decode(err.response.data);
+                        const parsed = JSON.parse(decodedString);
+                        if (parsed.detail) {
+                            errorMessage = parsed.detail;
+                        }
+                    } catch (e) {
+                        // ignore decode errors
+                    }
+                } else if (err?.response?.data?.detail) {
+                    errorMessage = err.response.data.detail;
+                }
+                
+                setError(errorMessage);
                 setLoading(false);
             }
         };

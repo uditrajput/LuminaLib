@@ -34,7 +34,15 @@ async def get_recommendations(
     book_svc: BookService = Depends(get_book_service),
     borrow_repo: BorrowRepository = Depends(get_borrow_repo),
 ) -> list[Book]:
-    books = list(await book_svc.get_all_books())
+    all_books = list(await book_svc.get_all_books())
+    from luminalib.services.user_group_service import UserGroupService
+    group_svc = UserGroupService(session)
+    authorized_private_ids = set(await group_svc.get_user_authorized_book_ids(user.id))
+
+    books = [
+        b for b in all_books
+        if getattr(b, "access_level", "public") != "private" or b.id in authorized_private_ids
+    ]
 
     if book_id:
         target = next((b for b in books if b.id == book_id), None)

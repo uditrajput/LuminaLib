@@ -31,6 +31,7 @@ describe("Profile Page", () => {
         (useAuth as jest.Mock).mockReturnValue({
             user: mockUser,
             refreshUser: jest.fn(),
+            logout: jest.fn(),
         });
         (useUserPreferences as jest.Mock).mockReturnValue({
             data: { preferences: { favoriteGenre: "Sci-Fi", language: "English" } },

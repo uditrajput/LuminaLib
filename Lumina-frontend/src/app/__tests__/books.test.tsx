@@ -6,9 +6,19 @@ import "@testing-library/jest-dom";
 
 // Mock hooks
 jest.mock("@/hooks/useAuth");
+jest.mock("next/navigation", () => ({
+    usePathname: () => "/books",
+    useRouter: () => ({
+        push: jest.fn(),
+    }),
+}));
+jest.mock("@/hooks/useBooks", () => ({
+    useBooks: jest.fn(() => ({ data: { items: [], total: 0 } })),
+}));
 jest.mock("@/components/layout/DashboardLayout", () => {
     return ({ children }: { children: React.ReactNode }) => <div data-testid="layout">{children}</div>;
 });
+
 jest.mock("@/components/books/BookList", () => ({
     BookList: ({ searchQuery }: { searchQuery: string }) => (
         <div data-testid="book-list">Books for: {searchQuery}</div>
@@ -33,8 +43,8 @@ describe("Books Page", () => {
 
         render(<BooksPage />);
 
-        expect(screen.getByText("Library")).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/Search by title, author, or genre/i)).toBeInTheDocument();
+        expect(screen.getByText("Library Catalog")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/Search.*library by title, author, or genre/i)).toBeInTheDocument();
     });
 
     it("does not show 'Upload Book' button for regular users", () => {
@@ -58,7 +68,7 @@ describe("Books Page", () => {
 
         render(<BooksPage />);
 
-        const searchInput = screen.getByPlaceholderText(/Search by title, author, or genre/i);
+        const searchInput = screen.getByPlaceholderText(/Search.*library by title, author, or genre/i);
         fireEvent.change(searchInput, { target: { value: "Orwell" } });
 
         expect(screen.getByTestId("book-list")).toHaveTextContent("Books for: Orwell");

@@ -45,6 +45,25 @@ DEFAULTS: Dict[str, tuple[str, str]] = {
     "cors_origins":               ('["http://localhost:3000","http://localhost:5173"]',  "Allowed CORS origins (JSON array)"),
     "storage_provider":           ("local",                                            "Storage provider: local | s3"),
     "storage_path":               ("./storage",                                        "Local storage directory path"),
+    # SMTP & Registration Whitelist
+    "smtp_enabled":               ("false",                                            "Enable SMTP Mailer for email verification"),
+    "smtp_host":                  ("smtp.gmail.com",                                   "SMTP Server Hostname"),
+    "smtp_port":                  ("587",                                              "SMTP Server Port"),
+    "smtp_user":                  ("noreply@luminalib.com",                            "SMTP Sender Email Username"),
+    "smtp_pass":                  ("",                                                 "SMTP Password or App Key"),
+    "allowed_email_domains":      ("@gmail.com, @hotmail.com, @outlook.com, @yahoo.com", "Allowed registration email domains (comma-separated)"),
+    # Social OAuth 2.0
+    "google_oauth_enabled":       ("false",                                            "Enable Google OAuth SSO"),
+    "google_client_id":           ("",                                                 "Google Client ID"),
+    "google_client_secret":       ("",                                                 "Google Client Secret"),
+    "microsoft_oauth_enabled":    ("false",                                            "Enable Microsoft/Outlook OAuth SSO"),
+    "microsoft_client_id":        ("",                                                 "Microsoft Client ID"),
+    "microsoft_client_secret":    ("",                                                 "Microsoft Client Secret"),
+    "microsoft_tenant_id":        ("common",                                           "Microsoft Tenant ID"),
+    "facebook_oauth_enabled":     ("false",                                            "Enable Facebook OAuth SSO"),
+    "facebook_app_id":            ("",                                                 "Facebook App ID"),
+    "facebook_app_secret":        ("",                                                 "Facebook App Secret"),
+    "max_failed_logins":          ("5",                                                "Maximum failed login attempts before account lockout"),
 }
 
 

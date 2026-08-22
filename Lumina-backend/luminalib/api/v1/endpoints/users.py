@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from luminalib.api.v1.deps import get_auth_service, get_current_user, get_db, get_user_repo, require_admin
@@ -34,20 +34,92 @@ async def get_me(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+@router.get("/me/dashboard", summary="Get user dashboard metrics")
+async def get_dashboard_metrics(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from luminalib.repositories.borrow_repository import BorrowRepository
+    from luminalib.schemas.user_schema import UserDashboardMetrics, BorrowedBookInfo
+    borrow_repo = BorrowRepository(session)
+    
+    stats = await borrow_repo.get_user_borrow_stats(user.id)
+    active_borrows_raw = await borrow_repo.get_active_borrows_with_book(user.id)
+    recent_returns_raw = await borrow_repo.get_recent_returns_with_book(user.id, limit=10)
+    
+    active_borrows = [
+        BorrowedBookInfo(
+            book_id=book.id,
+            title=book.title,
+            author=book.author,
+            cover_image_url=book.cover_image_url,
+            borrowed_at=borrow.borrowed_at,
+            returned_at=borrow.returned_at,
+        )
+        for borrow, book in active_borrows_raw
+    ]
+    
+    recent_returns = [
+        BorrowedBookInfo(
+            book_id=book.id,
+            title=book.title,
+            author=book.author,
+            cover_image_url=book.cover_image_url,
+            borrowed_at=borrow.borrowed_at,
+            returned_at=borrow.returned_at,
+        )
+        for borrow, book in recent_returns_raw
+    ]
+    
+    return UserDashboardMetrics(
+        total_borrowed=stats["total_borrowed"],
+        currently_borrowed=stats["currently_borrowed"],
+        returned=stats["returned"],
+        active_borrows=active_borrows,
+        recent_returns=recent_returns,
+    )
+
+
 @router.put("/me", response_model=UserRead, summary="Update current user profile")
 async def update_me(
     payload: UserUpdate,
     user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> User:
+    update_data = payload.model_dump(exclude_unset=True)
     return await auth_service.update_profile(
         user,
-        email=payload.email,
-        full_name=payload.full_name,
-        bio=payload.bio,
-        avatar_url=payload.avatar_url,
+        **update_data
     )
 
+
+@router.post("/me/avatar", response_model=UserRead, summary="Upload avatar image")
+async def upload_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> User:
+    import asyncio
+    from pathlib import Path
+    from uuid import uuid4
+    from luminalib.core.dynamic_config import get_dynamic
+
+    storage_path = Path(get_dynamic("storage_path", "./storage")) / "avatars"
+    storage_path.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "").suffix or ".jpg"
+    avatar_key = f"{uuid4().hex}{ext}"
+    avatar_path = storage_path / avatar_key
+    file_bytes = await file.read()
+    await asyncio.to_thread(avatar_path.write_bytes, file_bytes)
+
+    base_url = str(request.base_url).rstrip("/")
+    new_avatar_url = f"{base_url}/avatars/{avatar_key}"
+
+    return await auth_service.update_profile(
+        user,
+        avatar_url=new_avatar_url
+    )
 
 # ── Admin — stats ──────────────────────────────────────────────────────────────
 
@@ -58,6 +130,27 @@ async def get_user_stats(
 ) -> UserStats:
     stats = await user_repo.get_stats()
     return UserStats(**stats)
+
+
+@router.get("/pending-approvals", response_model=list[UserRead], summary="List users pending Admin approval")
+async def list_pending_approvals(
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """List users who have verified their email and are waiting for Admin approval."""
+    stmt = select(User).where(User.status == "verified_pending_approval")
+    res = await session.execute(stmt)
+    return res.scalars().all()
+
+
+@router.post("/{user_id}/approve", response_model=UserRead, summary="Approve & enable pending user access")
+async def approve_user_access(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Approve a user waiting in pending approval queue."""
+    return await auth_service.approve_user(user_id=user_id, admin_email=admin.email)
 
 
 # ── Admin — paginated list ─────────────────────────────────────────────────────
@@ -129,6 +222,7 @@ async def admin_update_user(
         avatar_url=payload.avatar_url,
         role=payload.role,
         is_active=payload.is_active,
+        is_locked=payload.is_locked,
         new_password=payload.new_password,
     )
 

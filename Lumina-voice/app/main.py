@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import logging
 import uuid
 import asyncio
@@ -84,6 +85,17 @@ async def get_voice_sample(voice: str = "af_bella", speed: float = 1.0, text: st
     sample_text = text or f"Hello! This is a test of the {voice} voice model in LuminaLib."
     audio_bytes = await synthesize_speech_bytes(sample_text, voice=voice, speed=speed)
     return Response(content=audio_bytes, media_type="audio/wav")
+
+
+from fastapi import UploadFile, File
+
+@app.post("/voice/transcribe", summary="Transcribe recorded audio file to text (STT)")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Transcribe raw audio bytes (WebM/WAV/Ogg/Opus) into text string."""
+    from app.stt import transcribe_audio_bytes
+    audio_bytes = await file.read()
+    transcript = await transcribe_audio_bytes(audio_bytes)
+    return {"transcript": transcript}
 
 
 @app.websocket("/voice/ws/{book_id}")

@@ -65,6 +65,30 @@ class UserRepository(BaseRepository[User]):
         result = await self.session.execute(query)
         return list(result.scalars().all()), total
 
+    async def get_by_verification_token(self, token: str) -> User | None:
+        result = await self.session.execute(
+            select(User)
+            .options(selectinload(User.role))
+            .where(User.verification_token == token)
+        )
+        return result.scalar_one_or_none()
+
+    async def seed_default_roles(self) -> None:
+        """Seed default system roles (admin, teacher, user) if missing."""
+        from luminalib.core.rbac import DEFAULT_ROLE_PERMISSIONS
+        for role_name, perms in DEFAULT_ROLE_PERMISSIONS.items():
+            existing = await self.get_role_by_name(role_name)
+            if not existing:
+                desc = f"System Default {role_name.capitalize()} Role"
+                role_obj = Role(
+                    name=role_name,
+                    description=desc,
+                    is_system=True,
+                    permissions_json=perms,
+                )
+                self.session.add(role_obj)
+        await self.session.commit()
+
     async def get_stats(self) -> dict:
         """Return aggregate statistics for the user admin dashboard."""
         total_res = await self.session.execute(select(func.count(User.id)))

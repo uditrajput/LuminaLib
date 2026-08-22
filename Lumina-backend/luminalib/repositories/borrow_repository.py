@@ -53,3 +53,38 @@ class BorrowRepository(BaseRepository[BookBorrow]):
             .distinct()
         )
         return list(result.scalars().all())
+
+    async def get_user_borrow_stats(self, user_id: int) -> dict:
+        result = await self.session.execute(
+            select(BookBorrow).where(BookBorrow.user_id == user_id)
+        )
+        borrows = result.scalars().all()
+        total_borrowed = len(borrows)
+        currently_borrowed = sum(1 for b in borrows if b.returned_at is None)
+        returned = total_borrowed - currently_borrowed
+        return {
+            "total_borrowed": total_borrowed,
+            "currently_borrowed": currently_borrowed,
+            "returned": returned,
+        }
+
+    async def get_active_borrows_with_book(self, user_id: int) -> list[tuple[BookBorrow, Book]]:
+        from luminalib.models.book import Book
+        result = await self.session.execute(
+            select(BookBorrow, Book)
+            .join(Book, BookBorrow.book_id == Book.id)
+            .where(BookBorrow.user_id == user_id, BookBorrow.returned_at.is_(None))
+            .order_by(BookBorrow.borrowed_at.desc())
+        )
+        return list(result.all())
+
+    async def get_recent_returns_with_book(self, user_id: int, limit: int = 5) -> list[tuple[BookBorrow, Book]]:
+        from luminalib.models.book import Book
+        result = await self.session.execute(
+            select(BookBorrow, Book)
+            .join(Book, BookBorrow.book_id == Book.id)
+            .where(BookBorrow.user_id == user_id, BookBorrow.returned_at.isnot(None))
+            .order_by(BookBorrow.returned_at.desc())
+            .limit(limit)
+        )
+        return list(result.all())

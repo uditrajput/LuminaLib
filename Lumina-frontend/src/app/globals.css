@@ -135,3 +135,29 @@ textarea:focus {
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
+
+/* Date input calendar picker icon styling */
+input[type="date"] {
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9);
+}

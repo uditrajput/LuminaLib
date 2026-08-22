@@ -2,7 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
+COPY luminalib ./luminalib
 RUN pip install --no-cache-dir .
 
 COPY . .

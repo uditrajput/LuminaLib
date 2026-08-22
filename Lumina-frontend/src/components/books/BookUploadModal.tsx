@@ -47,6 +47,17 @@ export default function BookUploadModal({ onClose }: Props) {
         }
     };
 
+    // Access level and User Groups state
+    const [accessLevel, setAccessLevel] = useState<"public" | "private">("public");
+    const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+    const [availableGroups, setAvailableGroups] = useState<{ id: number; name: string }[]>([]);
+
+    React.useEffect(() => {
+        import("@/services/groupService").then(({ groupService }) => {
+            groupService.getGroups().then((gList) => setAvailableGroups(gList)).catch(() => {});
+        });
+    }, []);
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0] ?? null;
         setFile(selectedFile);
@@ -95,6 +106,10 @@ export default function BookUploadModal({ onClose }: Props) {
             form.append("author", author);
             form.append("genre", genre);
             form.append("year_published", year);
+            form.append("access_level", accessLevel);
+            if (selectedGroupIds.length > 0) {
+                form.append("group_ids", selectedGroupIds.join(","));
+            }
             if (description.trim()) form.append("description", description.trim());
 
             // Cover image: either file upload or URL
@@ -212,6 +227,49 @@ export default function BookUploadModal({ onClose }: Props) {
                             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Year Published *</label>
                             <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="e.g. 2023" type="number" className="h-10 rounded-xl" />
                         </div>
+                        <div className="col-span-2 space-y-1">
+                            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Access Level *</label>
+                            <select
+                                value={accessLevel}
+                                onChange={(e) => setAccessLevel(e.target.value as "public" | "private")}
+                                className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="public">🌐 Public Library (Global Access - Default)</option>
+                                <option value="private">🔒 Private Library (Restricted to Selected User Groups)</option>
+                            </select>
+                        </div>
+
+                        {accessLevel === "private" && (
+                            <div className="col-span-2 space-y-2 p-3 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                                <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                                    Assign Book to User Groups & Classes
+                                </label>
+                                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                    {availableGroups.length === 0 ? (
+                                        <p className="text-xs text-slate-400">No user groups created yet. Create groups in Admin panel.</p>
+                                    ) : (
+                                        availableGroups.map((grp) => {
+                                            const isChecked = selectedGroupIds.includes(grp.id);
+                                            return (
+                                                <label key={grp.id} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelectedGroupIds([...selectedGroupIds, grp.id]);
+                                                            else setSelectedGroupIds(selectedGroupIds.filter((id) => id !== grp.id));
+                                                        }}
+                                                        className="h-4 w-4 text-indigo-600 rounded"
+                                                    />
+                                                    <span>{grp.name}</span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="col-span-2 space-y-1">
                             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Description <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span></label>
                             <textarea

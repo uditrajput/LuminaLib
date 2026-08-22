@@ -19,13 +19,14 @@ The LuminaLib Frontend is an elegant, responsive web application that provides t
 ## ✨ Key Features
 
 - **App Router Architecture:** Employs the highly performant Next.js 15 App router taking full advantage of React Server Components (RSC) and layouts.
+- **Gemini-Style Interactive Q&A (`/qa`):** Fully-featured AI assistant interface with persistent session history, draft chat auto-filtering (empty draft chats omitted from history), interactive 3D glassmorphism deletion modal (`DeleteChatModal.tsx`), Gemini-style prompt editor with in-place prompt edit & response regeneration (Redo), and cross-browser Speech-to-Text via backend Whisper STT.
+- **Dual-Mode Speech-to-Text (Voice STT):** Real-time Web Speech API audio recognition in Chrome/Edge, seamlessly falling back to `MediaRecorder` audio capture with live sound spectrum waves and backend Whisper STT in Mozilla Firefox.
+- **Profile Management & Contact Validation:** Profile details editor with avatar upload persistence, strict mobile validation (primary and secondary mobile numbers must be different), and automatic session revocation on password reset.
+- **Clean User Dashboard Layout:** Streamlined dashboard interface with non-functioning search bar and notification bell icon removed for focused user library tracking.
 - **Strict Component Composition:** Clean layouts comprising isolated atoms and fully reusable context-aware UI templates.
 - **Robust Abstracted Network Layer:** We strictly forbid the usage of uncontrolled `axios` and `fetch` calls in front-end pages. All endpoint mapping utilizes unified wrapper functions via `TanStack React Query`, resulting in smart-caching and extreme network resilience.
 - **AI-Powered Recommendations:** Fully integrated "For You" experience drawing real-time machine learning predictions mapped via the backend and preferences configuration.
-- **User Profile & Preferences Configurator:** Managed dashboard integrating robust preferences mappings leveraging interactive React hooks to mutate states seamlessly.
-- **Stunning UI Experience:** Clean design layouts incorporating customized micro-animations crafted directly via unified `Tailwind CSS`.
-- **Form Interception:** Secure, rapid data handling composed via `react-hook-form` and thoroughly checked via `zod`.
-- **App Settings Dashboard:** Configure dynamic settings like active LLM Providers (OpenRouter, Ollama, OpenAI) or API keys directly from an intuitive Admin UI panel—bypassing `.env`.
+- **App Settings Dashboard:** Configure dynamic settings like active LLM Providers (Docker Model Runner, OpenRouter, Ollama, OpenAI) or API keys directly from an intuitive Admin UI panel—bypassing `.env`.
 - **Grafana Observability Navigation:** Securely proxied administrative SSO dashboard link injected via Edge middleware, automatically pushing dual-tracked Next.js user activity logs and backend traces to Loki.
 - **Bulletproof Type Definitions:** Unified `types/*` perfectly syncing with the FastAPI definitions to assure bug-free payloads.
 - **Strict Security Pipelines:** Strong form validation enforcing complex password requirements (12+ characters, mixed symbols) tied closely with stateless JWT architectures.

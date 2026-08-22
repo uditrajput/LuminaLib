@@ -110,6 +110,22 @@ export const voiceService = {
             console.error("Backend voice sample failed:", err);
         }
     },
+
+    async transcribeAudio(audioBlob: Blob): Promise<string> {
+        try {
+            const formData = new FormData();
+            formData.append("file", audioBlob, "speech.webm");
+            const res = await apiClient.post<{ transcript: string }>("/voice/transcribe", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+            return res.data?.transcript || "";
+        } catch (err) {
+            console.error("Transcription request failed:", err);
+            return "";
+        }
+    },
 };
 
 export default voiceService;

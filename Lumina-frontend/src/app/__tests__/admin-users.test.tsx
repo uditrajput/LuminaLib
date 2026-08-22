@@ -54,7 +54,7 @@ describe("Admin Users Page", () => {
 
     it("renders the user management title for admins", () => {
         render(<AdminUsersPage />);
-        expect(screen.getByText("User Management")).toBeInTheDocument();
+        expect(screen.getByText("Users & Roles")).toBeInTheDocument();
     });
 
     it("displays user statistics correctly", () => {

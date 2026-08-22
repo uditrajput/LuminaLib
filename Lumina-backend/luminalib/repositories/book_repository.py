@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Sequence
 
 from sqlalchemy import desc, select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from luminalib.models.book import Book
@@ -16,6 +17,11 @@ class BookRepository(BaseRepository[Book]):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(Book, session)
+
+    async def get_by_id(self, id: int) -> Book | None:
+        query = select(Book).options(selectinload(Book.group_entitlements)).where(Book.id == id)
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
 
     async def get_paginated_books(
         self, page: int = 1, size: int = 10, search: str | None = None
@@ -37,10 +43,11 @@ class BookRepository(BaseRepository[Book]):
         total = count_result.scalar_one()
 
         # Get items
-        query = select(Book)
+        query = select(Book).options(selectinload(Book.group_entitlements))
         if filters:
             query = query.where(*filters)
         query = query.order_by(desc(Book.created_date)).offset((page - 1) * size).limit(size)
         
         result = await self.session.execute(query)
         return result.scalars().all(), total
+

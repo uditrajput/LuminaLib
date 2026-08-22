@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences, useUpdateUserPreferences } from "@/hooks/usePreferences";
-import { useUpdateProfile, useChangePassword } from "@/hooks/useProfile";
+import { useUpdateProfile, useChangePassword, useUploadAvatar } from "@/hooks/useProfile";
+import AvatarCropperModal from "@/components/profile/AvatarCropperModal";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,8 +14,9 @@ import { Input } from "@/components/ui/Input";
 import {
     User, Settings, Lock, Save, AlertCircle, CheckCircle2,
     Mail, FileText, Link2, BookOpen, Globe, Shield, Camera,
-    ChevronRight
+    ChevronRight, Trash2
 } from "lucide-react";
+import ProfileForm from "@/components/profile/ProfileForm";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -40,8 +42,11 @@ const passwordSchema = z.object({
 });
 
 const preferenceSchema = z.object({
-    favoriteGenre: z.string().optional(),
-    language: z.string().optional(),
+    favorite_genres: z.string().optional(),
+    preferred_language: z.string().optional(),
+    hobbies: z.string().optional(),
+    interests: z.string().optional(),
+    favorite_topics: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -54,7 +59,7 @@ type Tab = "info" | "security" | "preferences";
 
 // ── Profile Avatar ─────────────────────────────────────────────────────────
 
-function ProfileAvatar({ avatarUrl, fullName, email }: { avatarUrl?: string; fullName?: string; email?: string }) {
+function ProfileAvatar({ avatarUrl, fullName, email, onUpload, onRemove, isUploading }: { avatarUrl?: string; fullName?: string; email?: string; onUpload?: (file: File) => void; onRemove?: () => void; isUploading?: boolean }) {
     const initials = (fullName || email || "U")
         .split(" ")
         .map((n) => n[0])
@@ -62,18 +67,70 @@ function ProfileAvatar({ avatarUrl, fullName, email }: { avatarUrl?: string; ful
         .toUpperCase()
         .slice(0, 2);
 
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [imageToCrop, setImageToCrop] = React.useState<string | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.addEventListener('load', () => setImageToCrop(reader.result?.toString() || null));
+            reader.readAsDataURL(file);
+        }
+        // Reset input so same file can be selected again if cancelled
+        if (e.target) e.target.value = '';
+    };
+
     return (
         <div className="relative group">
-            <div className="h-28 w-28 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-slate-700">
-                {avatarUrl ? (
-                    <img src={avatarUrl} alt={fullName || "Avatar"} className="h-full w-full object-cover" />
-                ) : (
-                    <span className="text-3xl font-bold text-white">{initials}</span>
-                )}
+            <div 
+                className="relative cursor-pointer"
+                onClick={() => !isUploading && onUpload && fileInputRef.current?.click()}
+            >
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/png, image/jpeg, image/jpg" 
+                    onChange={handleFileChange} 
+                />
+                <div className={`h-28 w-28 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-slate-700 ${isUploading ? 'opacity-50' : ''}`}>
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt={fullName || "Avatar"} className="h-full w-full object-cover" />
+                    ) : (
+                        <span className="text-3xl font-bold text-white">{initials}</span>
+                    )}
+                </div>
+                <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {isUploading ? (
+                        <span className="h-6 w-6 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    ) : (
+                        <Camera className="h-6 w-6 text-white" />
+                    )}
+                </div>
             </div>
-            <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                <Camera className="h-6 w-6 text-white" />
-            </div>
+
+            {avatarUrl && onRemove && (
+                <button
+                    onClick={onRemove}
+                    disabled={isUploading}
+                    className="absolute bottom-0 right-0 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md transition-colors"
+                    title="Remove picture"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
+            )}
+
+            {imageToCrop && (
+                <AvatarCropperModal
+                    imageSrc={imageToCrop}
+                    onClose={() => setImageToCrop(null)}
+                    onComplete={(file) => {
+                        setImageToCrop(null);
+                        if (onUpload) onUpload(file);
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -121,14 +178,18 @@ function FormField({
 // ── Main ProfilePage ───────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, logout } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>("info");
+    const [isEditPrefs, setIsEditPrefs] = useState(false);
 
     // Profile form
     const { mutate: updateProfile, isPending: isSavingProfile, isSuccess: profileSuccess, isError: profileError, error: profileErr, reset: resetProfile } = useUpdateProfile();
 
     // Password form
     const { mutate: changePassword, isPending: isChangingPwd, isSuccess: pwdSuccess, isError: pwdError, error: pwdErr, reset: resetPwd } = useChangePassword();
+
+    // Avatar
+    const { mutate: uploadAvatar, isPending: isUploadingAvatar } = useUploadAvatar();
 
     // Preferences
     const { data: preferences, isLoading: isFetchingPrefs } = useUserPreferences();
@@ -170,11 +231,14 @@ export default function ProfilePage() {
 
     // Populate prefs form
     useEffect(() => {
-        if (preferences?.preferences) {
-            setPrefsValue("favoriteGenre", preferences.preferences.favoriteGenre || "");
-            setPrefsValue("language", preferences.preferences.language || "");
+        if (user) {
+            setPrefsValue("favorite_genres", user.favorite_genres ? user.favorite_genres.join(", ") : "");
+            setPrefsValue("preferred_language", user.preferred_language || "");
+            setPrefsValue("hobbies", user.hobbies ? user.hobbies.join(", ") : "");
+            setPrefsValue("interests", user.interests ? user.interests.join(", ") : "");
+            setPrefsValue("favorite_topics", user.favorite_topics ? user.favorite_topics.join(", ") : "");
         }
-    }, [preferences, setPrefsValue]);
+    }, [user, setPrefsValue]);
 
     // Auto-dismiss success alerts
     useEffect(() => {
@@ -206,22 +270,49 @@ export default function ProfilePage() {
             full_name: data.full_name || undefined,
             email: data.email || undefined,
             bio: data.bio || undefined,
-            avatar_url: data.avatar_url || undefined,
+            avatar_url: data.avatar_url || user?.avatar_url || undefined,
         });
     };
 
     const onPwdSubmit = (data: PasswordFormData) => {
-        changePassword({ current_password: data.current_password, new_password: data.new_password });
+        changePassword(
+            { current_password: data.current_password, new_password: data.new_password },
+            {
+                onSuccess: () => {
+                    resetPwdForm();
+                    setTimeout(() => {
+                        logout();
+                    }, 1500);
+                },
+            }
+        );
     };
 
     const onPrefsSubmit = (data: PreferenceFormData) => {
         const currentPrefs = preferences?.preferences || {};
+        
+        // Update UserProfile with AI fields
+        updateProfile({
+            favorite_genres: data.favorite_genres ? data.favorite_genres.split(",").map(s => s.trim()).filter(Boolean) : [],
+            preferred_language: data.preferred_language || "",
+            hobbies: data.hobbies ? data.hobbies.split(",").map(s => s.trim()).filter(Boolean) : [],
+            interests: data.interests ? data.interests.split(",").map(s => s.trim()).filter(Boolean) : [],
+            favorite_topics: data.favorite_topics ? data.favorite_topics.split(",").map(s => s.trim()).filter(Boolean) : [],
+        }, {
+            onSuccess: () => {
+                refreshUser();
+            }
+        });
+
+        // Also sync old preferences for compatibility
         updatePrefs({
             preferences: {
                 ...currentPrefs,
-                favoriteGenre: data.favoriteGenre,
-                language: data.language,
+                favoriteGenre: data.favorite_genres,
+                language: data.preferred_language,
             },
+        }, {
+            onSuccess: () => setIsEditPrefs(false)
         });
     };
 
@@ -256,6 +347,19 @@ export default function ProfilePage() {
                                 avatarUrl={user.avatar_url}
                                 fullName={user.full_name}
                                 email={user.email}
+                                isUploading={isUploadingAvatar || isSavingProfile}
+                                onUpload={(file) => {
+                                    uploadAvatar(file, {
+                                        onSuccess: () => {
+                                            refreshUser();
+                                        }
+                                    });
+                                }}
+                                onRemove={() => {
+                                    updateProfile({ avatar_url: "" }, {
+                                        onSuccess: () => refreshUser()
+                                    });
+                                }}
                             />
                             <div>
                                 <h2 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight break-all">
@@ -308,117 +412,7 @@ export default function ProfilePage() {
                     <main className="lg:col-span-3">
                         {/* ── TAB: Account Info ── */}
                         {activeTab === "info" && (
-                            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in">
-                                {/* Panel header */}
-                                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-                                        <User className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-900 dark:text-slate-100">Account Information</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">Update your name, email, bio, and avatar.</p>
-                                    </div>
-                                </div>
-
-                                <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="p-6 space-y-5">
-                                    {profileSuccess && <StatusAlert type="success" message="Profile updated successfully!" />}
-                                    {profileError && (
-                                        <StatusAlert
-                                            type="error"
-                                            message={profileErr instanceof Error ? profileErr.message : "Failed to update profile."}
-                                        />
-                                    )}
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                        <FormField
-                                            label="Full Name"
-                                            icon={<User className="h-3.5 w-3.5" />}
-                                            error={profileErrors.full_name?.message}
-                                            hint="Your display name across LuminaLib."
-                                        >
-                                            <Input
-                                                placeholder="e.g. Jane Doe"
-                                                {...regProfile("full_name")}
-                                                className="h-11 rounded-xl"
-                                            />
-                                        </FormField>
-
-                                        <FormField
-                                            label="Email Address"
-                                            icon={<Mail className="h-3.5 w-3.5" />}
-                                            error={profileErrors.email?.message}
-                                            hint="Used for login and notifications."
-                                        >
-                                            <Input
-                                                type="email"
-                                                placeholder="you@example.com"
-                                                {...regProfile("email")}
-                                                className="h-11 rounded-xl"
-                                            />
-                                        </FormField>
-                                    </div>
-
-                                    <FormField
-                                        label="Bio"
-                                        icon={<FileText className="h-3.5 w-3.5" />}
-                                        error={profileErrors.bio?.message}
-                                        hint="A short description about yourself (max 300 characters)."
-                                    >
-                                        <textarea
-                                            placeholder="Tell us a bit about yourself and your reading tastes..."
-                                            {...regProfile("bio")}
-                                            rows={3}
-                                            className="flex w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent dark:bg-slate-700 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-gray-400 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                        />
-                                    </FormField>
-
-                                    <FormField
-                                        label="Avatar URL"
-                                        icon={<Link2 className="h-3.5 w-3.5" />}
-                                        error={profileErrors.avatar_url?.message}
-                                        hint="Link to a public profile picture."
-                                    >
-                                        <Input
-                                            type="url"
-                                            placeholder="https://example.com/avatar.jpg"
-                                            {...regProfile("avatar_url")}
-                                            className="h-11 rounded-xl"
-                                        />
-                                    </FormField>
-
-                                    {/* Read-only info */}
-                                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                                        <Shield className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                                            Account role: <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">{user.role}</span>.
-                                            Role changes require contacting an administrator.
-                                        </p>
-                                    </div>
-
-                                    <div className="pt-2 flex items-center gap-3">
-                                        <Button
-                                            type="submit"
-                                            disabled={isSavingProfile}
-                                            className="h-11 px-7 rounded-xl font-semibold gap-2"
-                                        >
-                                            {isSavingProfile ? (
-                                                <span className="flex items-center gap-2">
-                                                    <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                                                    Saving…
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center gap-2">
-                                                    <Save className="h-4 w-4" />
-                                                    Save Changes
-                                                </span>
-                                            )}
-                                        </Button>
-                                        {profileDirty && !isSavingProfile && (
-                                            <span className="text-xs text-amber-500 dark:text-amber-400 font-medium">Unsaved changes</span>
-                                        )}
-                                    </div>
-                                </form>
-                            </div>
+                            <ProfileForm user={user} />
                         )}
 
                         {/* ── TAB: Security ── */}
@@ -437,7 +431,7 @@ export default function ProfilePage() {
                                     </div>
 
                                     <form onSubmit={handlePwdSubmit(onPwdSubmit)} className="p-6 space-y-5">
-                                        {pwdSuccess && <StatusAlert type="success" message="Password changed successfully!" />}
+                                        {pwdSuccess && <StatusAlert type="success" message="Password changed successfully! Signing out to log in with your new password..." />}
                                         {pwdError && (
                                             <StatusAlert
                                                 type="error"
@@ -484,7 +478,7 @@ export default function ProfilePage() {
                                             </FormField>
                                         </div>
 
-                                        <div className="pt-2">
+                                        <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700 mt-2">
                                             <Button
                                                 type="submit"
                                                 disabled={isChangingPwd}
@@ -532,14 +526,21 @@ export default function ProfilePage() {
                         {/* ── TAB: Preferences ── */}
                         {activeTab === "preferences" && (
                             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in">
-                                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                                    <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-xl text-violet-600 dark:text-violet-400">
-                                        <BookOpen className="h-5 w-5" />
+                                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-xl text-violet-600 dark:text-violet-400">
+                                            <BookOpen className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-slate-900 dark:text-slate-100">Reading Preferences</h3>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Help our AI surface the best books for your taste.</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-900 dark:text-slate-100">Reading Preferences</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">Help our AI surface the best books for your taste.</p>
-                                    </div>
+                                    {!isEditPrefs && !isFetchingPrefs && (
+                                        <Button type="button" onClick={() => setIsEditPrefs(true)} variant="outline" size="sm" className="gap-2">
+                                            <Settings className="w-4 h-4" /> Edit Preferences
+                                        </Button>
+                                    )}
                                 </div>
 
                                 {isFetchingPrefs ? (
@@ -549,68 +550,174 @@ export default function ProfilePage() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <form onSubmit={handlePrefsSubmit(onPrefsSubmit)} className="p-6 space-y-5">
-                                        {prefsSuccess && <StatusAlert type="success" message="Preferences saved successfully!" />}
+                                    <div className="p-6">
+                                        {prefsSuccess && <div className="mb-5"><StatusAlert type="success" message="Preferences saved successfully!" /></div>}
                                         {prefsError && (
-                                            <StatusAlert
-                                                type="error"
-                                                message={prefsErr instanceof Error ? prefsErr.message : "Failed to save preferences."}
-                                            />
+                                            <div className="mb-5">
+                                                <StatusAlert type="error" message={prefsErr instanceof Error ? prefsErr.message : "Failed to save preferences."} />
+                                            </div>
                                         )}
 
-                                        <FormField
-                                            label="Favorite Genres"
-                                            icon={<BookOpen className="h-3.5 w-3.5" />}
-                                            hint="Separate multiple genres with commas."
-                                        >
-                                            <Input
-                                                type="text"
-                                                placeholder="e.g. Science Fiction, Mystery, Biography..."
-                                                {...regPrefs("favoriteGenre")}
-                                                className="h-11 rounded-xl"
-                                            />
-                                        </FormField>
+                                        {!isEditPrefs ? (
+                                            <div className="space-y-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        <span className="block text-xs font-medium text-slate-500 mb-2">Favorite Genres</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {user.favorite_genres && user.favorite_genres.length > 0 ? (
+                                                                user.favorite_genres.map((g, i) => (
+                                                                    <span key={i} className="px-2.5 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 text-xs rounded-full">{g}</span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400 italic">Not specified</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-xs font-medium text-slate-500 mb-1">Preferred Language</span>
+                                                        <span className="block text-sm text-slate-900 dark:text-slate-100 font-medium">
+                                                            {user.preferred_language || <span className="text-slate-400 italic">Not specified</span>}
+                                                        </span>
+                                                    </div>
+                                                    <div className="md:col-span-2">
+                                                        <span className="block text-xs font-medium text-slate-500 mb-2">Hobbies</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {user.hobbies && user.hobbies.length > 0 ? (
+                                                                user.hobbies.map((h, i) => (
+                                                                    <span key={i} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-md">{h}</span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400 italic">Not specified</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="md:col-span-2">
+                                                        <span className="block text-xs font-medium text-slate-500 mb-2">Interests</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {user.interests && user.interests.length > 0 ? (
+                                                                user.interests.map((int, i) => (
+                                                                    <span key={i} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-md">{int}</span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400 italic">Not specified</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="md:col-span-2">
+                                                        <span className="block text-xs font-medium text-slate-500 mb-2">Favorite Topics</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {user.favorite_topics && user.favorite_topics.length > 0 ? (
+                                                                user.favorite_topics.map((t, i) => (
+                                                                    <span key={i} className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">{t}</span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400 italic">Not specified</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="p-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 flex items-start gap-3 mt-4">
+                                                    <BookOpen className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                                                    <p className="text-xs text-violet-700 dark:text-violet-300 leading-relaxed">
+                                                        These preferences guide your personalized recommendations. The more specific you are, the better LuminaLib can tailor suggestions for you.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <form onSubmit={handlePrefsSubmit(onPrefsSubmit)} className="space-y-5">
+                                                <FormField
+                                                    label="Favorite Genres"
+                                                    icon={<BookOpen className="h-3.5 w-3.5" />}
+                                                    hint="Separate multiple genres with commas."
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="e.g. Science Fiction, Mystery, Biography..."
+                                                        {...regPrefs("favorite_genres")}
+                                                        className="h-11 rounded-xl"
+                                                    />
+                                                </FormField>
 
-                                        <FormField
-                                            label="Preferred Language"
-                                            icon={<Globe className="h-3.5 w-3.5" />}
-                                            hint="Recommendations will prioritize books in this language."
-                                        >
-                                            <Input
-                                                type="text"
-                                                placeholder="e.g. English, Spanish, French..."
-                                                {...regPrefs("language")}
-                                                className="h-11 rounded-xl"
-                                            />
-                                        </FormField>
+                                                <FormField
+                                                    label="Preferred Language"
+                                                    icon={<Globe className="h-3.5 w-3.5" />}
+                                                    hint="Recommendations will prioritize books in this language."
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="e.g. English, Spanish, French..."
+                                                        {...regPrefs("preferred_language")}
+                                                        className="h-11 rounded-xl"
+                                                    />
+                                                </FormField>
 
-                                        <div className="p-4 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 flex items-start gap-3">
-                                            <BookOpen className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
-                                            <p className="text-xs text-violet-700 dark:text-violet-300 leading-relaxed">
-                                                These preferences guide your personalized recommendations. The more specific you are, the better LuminaLib can tailor suggestions for you.
-                                            </p>
-                                        </div>
+                                                <FormField
+                                                    label="Hobbies"
+                                                    hint="Separate multiple hobbies with commas. Used for AI personalization."
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="e.g. Reading, Coding, Chess..."
+                                                        {...regPrefs("hobbies")}
+                                                        className="h-11 rounded-xl"
+                                                    />
+                                                </FormField>
 
-                                        <div className="pt-2">
-                                            <Button
-                                                type="submit"
-                                                disabled={isSavingPrefs}
-                                                className="h-11 px-7 rounded-xl font-semibold gap-2"
-                                            >
-                                                {isSavingPrefs ? (
-                                                    <span className="flex items-center gap-2">
-                                                        <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                                                        Saving…
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-2">
-                                                        <Save className="h-4 w-4" />
-                                                        Save Preferences
-                                                    </span>
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </form>
+                                                <FormField
+                                                    label="Interests"
+                                                    hint="Separate multiple interests with commas. Helps AI tailor content."
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="e.g. Technology, History..."
+                                                        {...regPrefs("interests")}
+                                                        className="h-11 rounded-xl"
+                                                    />
+                                                </FormField>
+
+                                                <FormField
+                                                    label="Favorite Topics"
+                                                    hint="Separate multiple topics with commas."
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="e.g. Artificial Intelligence, Space Exploration..."
+                                                        {...regPrefs("favorite_topics")}
+                                                        className="h-11 rounded-xl"
+                                                    />
+                                                </FormField>
+
+                                                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => { resetPrefs(); setIsEditPrefs(false); }}
+                                                        className="h-11 px-5 rounded-xl font-medium"
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={isSavingPrefs}
+                                                        className="h-11 px-7 rounded-xl font-semibold gap-2"
+                                                    >
+                                                        {isSavingPrefs ? (
+                                                            <span className="flex items-center gap-2">
+                                                                <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                                                                Saving…
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-2">
+                                                                <Save className="h-4 w-4" />
+                                                                Save Preferences
+                                                            </span>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}

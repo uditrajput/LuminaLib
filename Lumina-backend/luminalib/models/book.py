@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from luminalib.models.base_audit_model import AuditBase
 
@@ -27,3 +27,7 @@ class Book(AuditBase):
     summary: Mapped[str | None] = mapped_column(Text)
     review_summary: Mapped[str | None] = mapped_column(Text)
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
+    access_level: Mapped[str] = mapped_column(String(20), default="public", nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    group_entitlements = relationship("BookGroupEntitlement", back_populates="book", cascade="all, delete-orphan")

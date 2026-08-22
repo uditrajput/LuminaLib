@@ -8,6 +8,8 @@ export interface Book {
     language?: string;
     cover_image_url?: string;
     file_name?: string;
+    access_level?: string;
+    group_ids?: number[];
     created_at: string;
     updated_at: string;
 }
@@ -20,4 +22,7 @@ export interface BookCreate {
     description?: string;
     language?: string;
     cover_image_url?: string;
+    access_level?: string;
+    group_ids?: number[];
 }
+

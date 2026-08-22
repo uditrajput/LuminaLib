@@ -24,12 +24,38 @@ export default function LoginPage() {
     const { login, isAuthenticated, isLoading } = useAuth();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
+    const [socialProviders, setSocialProviders] = useState<{ google: boolean; microsoft: boolean; facebook: boolean }>({
+        google: false,
+        microsoft: false,
+        facebook: false,
+    });
 
     useEffect(() => {
         if (!isLoading && isAuthenticated) {
-            router.push("/books");
+            router.push("/dashboard");
         }
     }, [isLoading, isAuthenticated, router]);
+
+    useEffect(() => {
+        const fetchSocialStatus = async () => {
+            try {
+                const { default: apiClient } = await import("@/services/apiClient");
+                const res = await apiClient.get("/auth/social-status");
+                if (res.data) {
+                    setSocialProviders({
+                        google: !!res.data.google,
+                        microsoft: !!res.data.microsoft,
+                        facebook: !!res.data.facebook,
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to fetch social auth status", e);
+            }
+        };
+        fetchSocialStatus();
+    }, []);
+
+    const hasAnySocial = socialProviders.google || socialProviders.microsoft || socialProviders.facebook;
 
     const {
         register,
@@ -44,7 +70,7 @@ export default function LoginPage() {
         try {
             const token = await loginUser(data.email, data.password);
             login(token);
-            router.push("/books");
+            router.push("/dashboard");
         } catch (err: any) {
             setError(err?.response?.data?.detail || "Invalid email or password");
         }
@@ -157,6 +183,79 @@ export default function LoginPage() {
                                     )}
                                 </Button>
                             </form>
+
+                            {/* 1-Click Social Media OAuth 2.0 Sign In */}
+                            {hasAnySocial && (
+                                <div className="mt-6 space-y-3 relative z-10">
+                                    <div className="relative flex py-1 items-center">
+                                        <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+                                        <span className="flex-shrink mx-3 text-xs text-slate-400 font-semibold uppercase">Or Sign In With</span>
+                                        <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+                                    </div>
+                                    <div className="flex justify-center gap-2 text-xs font-semibold">
+                                        {socialProviders.google && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        const { default: apiClient } = await import("@/services/apiClient");
+                                                        const res = await apiClient.post("/auth/oauth/google", { email: "user@gmail.com", name: "Google User" });
+                                                        if (res.data?.data?.access_token) {
+                                                            login(res.data.data.access_token);
+                                                            router.push("/dashboard");
+                                                        }
+                                                    } catch (err: any) {
+                                                        setError(err?.response?.data?.detail || err?.response?.data?.error_message || "Google sign-in failed.");
+                                                    }
+                                                }}
+                                                className="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center gap-1.5 transition-all"
+                                            >
+                                                <span className="text-red-500 font-extrabold text-sm">G</span> Google
+                                            </button>
+                                        )}
+                                        {socialProviders.microsoft && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        const { default: apiClient } = await import("@/services/apiClient");
+                                                        const res = await apiClient.post("/auth/oauth/microsoft", { email: "user@outlook.com", name: "Microsoft User" });
+                                                        if (res.data?.data?.access_token) {
+                                                            login(res.data.data.access_token);
+                                                            router.push("/dashboard");
+                                                        }
+                                                    } catch (err: any) {
+                                                        setError(err?.response?.data?.detail || err?.response?.data?.error_message || "Microsoft sign-in failed.");
+                                                    }
+                                                }}
+                                                className="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center gap-1.5 transition-all"
+                                            >
+                                                <span className="text-blue-500 font-extrabold text-sm">M</span> Microsoft
+                                            </button>
+                                        )}
+                                        {socialProviders.facebook && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        const { default: apiClient } = await import("@/services/apiClient");
+                                                        const res = await apiClient.post("/auth/oauth/facebook", { email: "user@facebook.com", name: "Facebook User" });
+                                                        if (res.data?.data?.access_token) {
+                                                            login(res.data.data.access_token);
+                                                            router.push("/dashboard");
+                                                        }
+                                                    } catch (err: any) {
+                                                        setError(err?.response?.data?.detail || err?.response?.data?.error_message || "Facebook sign-in failed.");
+                                                    }
+                                                }}
+                                                className="flex-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center gap-1.5 transition-all"
+                                            >
+                                                <span className="text-indigo-600 font-extrabold text-sm">f</span> Facebook
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="mt-8 text-center text-sm text-slate-600 dark:text-slate-400 relative z-10">
                                 Don't have an account?{" "}

@@ -39,7 +39,7 @@ describe("Login Page", () => {
         });
 
         render(<LoginPage />);
-        expect(mockPush).toHaveBeenCalledWith("/books");
+        expect(mockPush).toHaveBeenCalledWith("/dashboard");
     });
 
     it("renders the login form elements", () => {

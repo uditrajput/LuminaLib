@@ -19,12 +19,14 @@ type NavLink = {
     public: boolean;
     adminOnly?: boolean;
     external?: boolean;
+    publicOnly?: boolean;
 };
 
 const navLinks: NavLink[] = [
-    { href: "/", label: "Home", icon: Home, public: true },
-    { href: "/books", label: "Library", icon: Library, public: true },
+    { href: "/dashboard", label: "Dashboard", icon: Sparkles, public: false },
+    { href: "/books", label: "Library", icon: Library, public: false },
     { href: "/recommendations", label: "For You", icon: Sparkles, public: false },
+
     { href: "/qa", label: "AI Q&A", icon: Brain, public: false },
     { href: "/admin/users", label: "Manage Users", icon: Users, public: false, adminOnly: true },
     { href: "/admin/config", label: "App Settings", icon: Settings, public: false, adminOnly: true },
@@ -38,6 +40,7 @@ export default function Navbar() {
 
     const links = navLinks.filter((l) => {
         if (l.adminOnly && user?.role !== "admin") return false;
+        if (l.publicOnly && isAuthenticated) return false;
         return l.public || isAuthenticated;
     });
 
@@ -45,7 +48,7 @@ export default function Navbar() {
         <nav className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-xl shadow-sm">
             <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2.5 group">
+                <Link href={isAuthenticated ? "/dashboard" : "/login"} className="flex items-center gap-2.5 group">
                     <div className="p-1.5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-sm group-hover:shadow-blue-200 transition-shadow">
                         <BookOpen className="h-5 w-5 text-white" />
                     </div>
@@ -93,8 +96,12 @@ export default function Navbar() {
                                         : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
                                 )}
                             >
-                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                                    {((user?.full_name ?? user?.email ?? "U")[0]).toUpperCase()}
+                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden ring-2 ring-white/10">
+                                    {user?.avatar_url ? (
+                                        <img src={user.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                                    ) : (
+                                        ((user?.full_name ?? user?.email ?? "U")[0]).toUpperCase()
+                                    )}
                                 </div>
                                 <span className="hidden lg:block max-w-[120px] truncate">{user?.full_name || user?.email}</span>
                             </Link>

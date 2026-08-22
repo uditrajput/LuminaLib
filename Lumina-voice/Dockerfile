@@ -19,9 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy app code
 COPY . .
 
-# Pre-cache Kokoro and Whisper model weights during build phase so startup is instant
-RUN python -c "from app.stt import get_whisper_model; get_whisper_model()" && \
-    python -c "from app.tts import get_kokoro_pipeline; get_kokoro_pipeline()"
+# Pre-cache Kokoro and Whisper model weights during build phase if available (fails soft if offline/rate-limited)
+RUN python -c "from app.stt import get_whisper_model; get_whisper_model()" || true
+RUN python -c "from app.tts import get_kokoro_pipeline; get_kokoro_pipeline()" || true
 
 EXPOSE 8001
 

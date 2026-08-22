@@ -94,7 +94,7 @@ async def update_preferences(
 import os
 import logging
 import httpx
-from fastapi import Response
+from fastapi import Response, UploadFile, File
 
 VOICE_SERVICE_URL = os.getenv("VOICE_SERVICE_URL", "http://voice:8001").rstrip("/")
 logger = logging.getLogger("luminalib.api.voice")
@@ -116,3 +116,18 @@ async def get_voice_sample(voice: str = "af_bella", speed: float = 1.0, text: st
 
     from luminalib.services.voice_service import generate_fallback_sample_wav
     return Response(content=generate_fallback_sample_wav(voice), media_type="audio/wav")
+
+
+@router.post("/transcribe", summary="Transcribe recorded audio (STT)")
+async def transcribe_audio_proxy(file: UploadFile = File(...)):
+    """Proxy audio blob transcription to voice microservice (Whisper STT)."""
+    try:
+        content = await file.read()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            files = {"file": (file.filename or "recording.webm", content, file.content_type or "audio/webm")}
+            resp = await client.post(f"{VOICE_SERVICE_URL}/voice/transcribe", files=files)
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as exc:
+        logger.warning("Voice service transcribe proxy failed: %s", exc)
+    return {"transcript": ""}

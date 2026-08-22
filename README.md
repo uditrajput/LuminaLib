@@ -23,16 +23,20 @@
 
 ## 📖 Overview
 
-**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 15** frontend. Powered by machine learning and LLM-based AI, it offers smart book recommendations, semantic Q&A over ingested documents with high-yield topic question generation, auto-generated book summaries, hands-free voice AI interaction, borrow/return tracking, customizable PDF reader frame themes, and community reviews — all delivered through a beautifully designed, responsive UI.
+**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 15** frontend. Powered by machine learning and LLM-based AI, it offers smart book recommendations, interactive Gemini-style Q&A over ingested documents with high-yield topic question generation, auto-generated book summaries, hands-free voice AI interaction, Mozilla Firefox & cross-browser Speech-to-Text via Whisper STT, borrow/return tracking, customizable PDF reader frame themes, profile management with contact validation, and community reviews — all delivered through a beautifully designed, responsive UI.
 
 ---
 
 ## ✨ Feature Highlights
 
-| Feature | Descrip| 🎙️ **Voice AI Assistant** | Real-time spoken Q&A, voice borrow/return, reviews, 30s action confirmations, Web Speech API client-side voice sample previewing, and Kokoro TTS audio streaming via `Lumina-voice` microservice |
-| 🤖 **AI Q&A & Topic Practice** | RAG pipeline — ask questions against ingested books or request high-yield exam & interview questions on any topic with 1-click `✨ Answer` action buttons |
+| Feature | Description |
+|---|---|
+| 🎙️ **Voice AI & Cross-Browser STT** | Real-time spoken Q&A, voice borrow/return, reviews, Web Speech API live streaming for Chrome/Edge, **Mozilla Firefox `MediaRecorder` + Whisper STT** (`Lumina-voice`), 30s action confirmations, Web Speech sample previewing, and Kokoro TTS audio streaming |
+| 🤖 **Gemini-Style AI Q&A & Topic Practice** | Interactive RAG Q&A — persistent session history, **draft chat auto-filtering** (empty new chats omitted from history), **interactive 3D glassmorphism deletion modal**, **Gemini-style prompt editor & in-place updates**, **in-place response regeneration (Redo)** without prompt duplication, and 1-click `✨ Answer` action buttons for high-yield topic practice |
 | 🗣️ **Clean Speech Synthesis** | Voice mode automatically strips page numbers (e.g. *"On Page 12"*), citations (`[1]`), table pipes (`|`), and formatting artifacts for clean, natural narration |
 | 📖 **PDF Reader & Frame Themes** | Integrated PDF reader featuring 8 customizable book frame themes, single-column enlarged thumbnails with page numbers below, text search panel, space-preserved text selection, and frame-anchored glassmorphism navigation buttons |
+| 👤 **Profile & Contact Integrity** | Custom avatar picture upload with persistence, **strict mobile validation** (Primary and Secondary mobile numbers must be different), and **password reset session revocation** (invalidates active sessions for clean re-login) |
+| 📊 **Clean User Dashboard** | Optimized dashboard layout with non-functioning search bar and notification bell icon removed for clean, focused user library tracking |
 | 📚 **Book Catalogue** | Full CRUD with multi-format file upload (PDF/Text), paginated listing, genre tagging, and background chunking/ingestion |
 | ⚙️ **Dynamic App Settings** | Reorganized Config page (`/admin/config`): General Configurations placed at the top (default open with `+ Add Config` button hiding when collapsed), collapsible LLM Provider with unclipped dropdown & Voice Settings panels, and smart save button state management |
 | 🛡️ **Security Audit Remediated** | Full remediation of security audit findings (`CRIT-001` to `LOW-004`): subprotocol JWT WebSocket auth, 500-char transcript sanitization, JWT log scrubbing, audio header magic byte validation, and security headers |
@@ -62,14 +66,14 @@ LuminaLib/                          ← Monorepo root
 │   └── .env.example
 │
 ├── Lumina-voice/                   ← Voice AI Agent Microservice · FastAPI · WebSockets · Kokoro TTS · Whisper STT
-│   ├── app/                        ← main, pipeline, action_executor, intent, security, stt, tts
+│   ├── app/                        ← main, pipeline, action_executor, intent, security, stt (faster-whisper), tts (Kokoro)
 │   ├── Dockerfile
 │   └── requirements.txt
 │
 ├── Lumina-frontend/                ← Next.js 15 · React 19 · TypeScript · TailwindCSS 4
 │   ├── src/
 │   │   ├── app/                    ← App Router pages (/, /books, /books/[id], /qa, /profile, /recommendations, /admin/config, /admin/users, /login, /signup)
-│   │   ├── components/             ← ui/ · books/ · layout/ · pdf/ · voice/
+│   │   ├── components/             ← ui/ · books/ · layout/ · pdf/ · qa/ (DeleteChatModal.tsx) · voice/
 │   │   ├── services/               ← apiClient, authService, bookService, reviewService, qaService, voiceService, configService
 │   │   ├── hooks/                  ← useAuth, useBooks, useRecommendations, usePreferences, useAppConfigs
 │   │   ├── types/                  ← TypeScript DTOs mirroring backend schemas
@@ -123,7 +127,7 @@ LuminaLib/                          ← Monorepo root
 | Layer | Technology |
 |---|---|
 | Service Framework | FastAPI + WebSockets (`:8001`) |
-| Speech-to-Text | Whisper STT (`faster-whisper`) |
+| Speech-to-Text | Whisper STT (`faster-whisper`) for Firefox & Cross-Browser audio transcription |
 | Text-to-Speech | Kokoro-82M TTS (ONNX Runtime CPU) + Web Speech API browser previewing |
 | Intent Parser | Natural language pattern matcher & action executor |
 
@@ -184,32 +188,40 @@ LuminaLib/                          ← Monorepo root
 
 ---
 
-### ▶️ Option 1 — PowerShell Script (Recommended on Windows)
+### ▶️ Option 1 — Single-Command Build & Deploy (Docker Compose)
 
-Open **PowerShell** at the repository root and run:
+Run the following command at the repository root to build all microservice images and deploy the complete LuminaLib stack in detached mode:
 
-```powershell
-# Standard deploy
-.\deploy.ps1
-
-# Force a clean rebuild after code changes
-.\deploy.ps1 -Rebuild
-
-# Tear down all containers
-.\deploy.ps1 -Down
-
-# Stream live logs from all containers
-.\deploy.ps1 -Logs
+```bash
+docker-compose up --build -d
 ```
 
 ---
 
-### ▶️ Option 2 — Docker Compose Directly
+### ▶️ Option 2 — Deployment Helper Scripts
+
+**Linux / macOS / Git Bash:**
+```bash
+chmod +x deploy.sh
+./deploy.sh          # Build & deploy
+./deploy.sh --rebuild # Force fresh image rebuild
+./deploy.sh --down    # Stop containers
+./deploy.sh --logs    # Stream container logs
+```
+
+**PowerShell (Windows):**
+```powershell
+.\deploy.ps1          # Build & deploy
+.\deploy.ps1 -Rebuild # Force fresh image rebuild
+.\deploy.ps1 -Down    # Stop containers
+.\deploy.ps1 -Logs    # Stream container logs
+```
+
+---
+
+### 🛠️ Useful Management Commands
 
 ```bash
-# Build & start all containers in detached mode
-docker-compose up --build -d
-
 # View live logs across all microservices
 docker-compose logs -f
 
@@ -254,16 +266,6 @@ Application settings are stored in the PostgreSQL `app_configs` table and manage
 3. **Voice Assistant & Speech Settings (Default Collapsed)**:
    - Select Kokoro TTS voice model (`af_bella`, `am_adam`, `bf_emma`, etc.), speech rate (0.5x–2.0x), auto-play setting, and transcript display.
    - Click **`Test Active Voice`** to trigger an instant Web Speech API audio sample preview in human voice.
-   - Smart **`Save Voice Settings`** button stays disabled until settings are modified, preventing accidental saves.in/config`):
-
-1. **General Configurations (Top Section, Default Open)**:
-   - Search and edit application properties (e.g. storage paths, CORS origins, max upload size).
-   - Click `+ Add Config` directly in the section header bar to add custom key-value settings.
-2. **LLM Provider Panel (Default Collapsed)**:
-   - Dynamic selection between Docker Model Runner, OpenRouter, Ollama, OpenAI, or Mock.
-   - Enter and save provider API keys dynamically without `.env` edits or container restarts.
-3. **Voice Assistant & Speech Settings (Default Collapsed)**:
-   - Select Kokoro TTS voice model (`af_bella`, `am_adam`, `bf_emma`, etc.), speech rate (0.5x–2.0x), auto-play setting, and transcript display.
    - Smart **`Save Voice Settings`** button stays disabled until settings are modified, preventing accidental saves.
 
 ---
@@ -304,7 +306,7 @@ All REST API endpoints are prefixed with `/api/v1` and protected via **Bearer JW
 | **auth** | `POST` | `/auth/signup` | Register new user account |
 | **auth** | `POST` | `/auth/login` | Authenticate user & return JWT token |
 | **auth** | `GET` | `/auth/profile` | Retrieve current user profile |
-| **auth** | `PUT` | `/auth/profile` | Update profile information |
+| **auth** | `PUT` | `/auth/profile` | Update profile information & avatar persistence |
 | **books** | `GET` | `/books` | Paginated book listing with search & filters |
 | **books** | `POST` | `/books` | Upload book file (PDF/Text) & metadata |
 | **books** | `GET` | `/books/{id}` | Get book details & ingestion status |
@@ -316,12 +318,13 @@ All REST API endpoints are prefixed with `/api/v1` and protected via **Bearer JW
 | **books** | `GET` | `/books/{id}/borrow-status` | Check current user borrow status |
 | **reviews** | `GET` | `/books/{id}/reviews` | List book reviews & rolling AI consensus |
 | **reviews** | `POST` | `/books/{id}/reviews` | Submit star rating & review (requires borrow) |
-| **qa** | `POST` | `/qa` | Ask semantic question or request topic practice questions |
+| **qa** | `POST` | `/qa` | Ask semantic question, edit prompt in-place, or request topic practice questions |
 | **ingestion** | `POST` | `/ingestion/{doc_id}` | Initiate async background chunking & embedding |
 | **ingestion** | `GET` | `/ingestion/jobs` | Track background document ingestion status |
 | **recommendations** | `GET` | `/recommendations` | Get personalized ML book recommendations |
 | **users** | `GET` | `/users/me/preferences` | Get user reading preferences |
 | **users** | `PUT` | `/users/me/preferences` | Update reading preferences |
+| **voice** | `POST` | `/voice/transcribe` | Transcribe audio stream to text (Whisper STT for Firefox/Cross-Browser) |
 | **voice** | `GET` | `/voice/conversations` | List user voice conversation history |
 | **voice** | `GET` | `/voice/conversations/{id}` | Get specific voice conversation transcript |
 | **voice** | `DELETE` | `/voice/conversations/{id}` | Clear voice conversation history |

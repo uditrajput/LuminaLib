@@ -1,10 +1,15 @@
 import apiClient from "./apiClient";
-import { User, UserUpdate, PasswordChange, AdminUserUpdate, UserCreate, PaginatedUserResponse, UserStats } from "@/types/user";
+import { User, UserUpdate, PasswordChange, AdminUserUpdate, UserCreate, PaginatedUserResponse, UserStats, UserDashboardMetrics } from "@/types/user";
 import { UserPreference, UserPreferencesUpdate } from "@/types/preference";
 
 // ── Self profile ──────────────────────────────────────────────────────────────
 export const getMyProfile = async (): Promise<User> => {
     const response = await apiClient.get<User>("/users/me");
+    return response.data;
+};
+
+export const getDashboardMetrics = async (): Promise<UserDashboardMetrics> => {
+    const response = await apiClient.get<UserDashboardMetrics>("/users/me/dashboard");
     return response.data;
 };
 
@@ -15,6 +20,15 @@ export const updateMyProfile = async (data: UserUpdate): Promise<User> => {
 
 export const changePassword = async (data: PasswordChange): Promise<User> => {
     const response = await apiClient.put<User>("/auth/change-password", data);
+    return response.data;
+};
+
+export const uploadAvatar = async (file: File): Promise<User> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<User>("/users/me/avatar", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
 };
 

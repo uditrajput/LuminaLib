@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import {
     Settings, Search, Plus, Edit3, X, CheckCircle2,
     AlertCircle, FileText, Settings2, Key, Database,
-    Cpu, Server, Cloud, Zap, ChevronDown, Mic, Volume2, RefreshCw, Globe
+    Cpu, Server, Cloud, Zap, ChevronDown, Mic, Volume2, RefreshCw, Globe, Mail
 } from "lucide-react";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -66,6 +66,12 @@ const HIDDEN_KEYS = new Set([
     "docker_model", "docker_base_url",
     "openai_custom_base_url", "openai_custom_api_key", "openai_custom_model",
     "admin_email", "admin_password",
+    // SMTP Keys
+    "smtp_enabled", "smtp_host", "smtp_port", "smtp_user", "smtp_pass", "allowed_email_domains",
+    // Social OAuth Keys
+    "google_oauth_enabled", "google_client_id", "google_client_secret",
+    "microsoft_oauth_enabled", "microsoft_client_id", "microsoft_client_secret", "microsoft_tenant_id",
+    "facebook_oauth_enabled", "facebook_app_id", "facebook_app_secret",
 ]);
 
 // ── Small helpers ─────────────────────────────────────────────────────────────
@@ -544,6 +550,523 @@ function VoiceSettingsPanel() {
     );
 }
 
+// ── SMTP Server & Account Security Panel ──────────────────────────────────────
+
+function SMTPSettingsPanel({ configs, onConfigUpdate }: { configs: AppConfig[]; onConfigUpdate: () => void }) {
+    const update = useUpdateAppConfig();
+    const [isOpen, setIsOpen] = useState(false);
+    const [editingSection, setEditingSection] = useState<"mailer" | "server" | "domains" | null>(null);
+
+    const getVal = (key: string, def = '') => configs.find((c) => c.key === key)?.value || def;
+
+    const [smtpEnabled, setSmtpEnabled] = useState(getVal('smtp_enabled', 'false') === 'true');
+    const [smtpHost, setSmtpHost] = useState(getVal('smtp_host', 'smtp.gmail.com'));
+    const [smtpPort, setSmtpPort] = useState(getVal('smtp_port', '587'));
+    const [smtpUser, setSmtpUser] = useState(getVal('smtp_user', 'noreply@luminalib.com'));
+    const [smtpPass, setSmtpPass] = useState(getVal('smtp_pass', '••••••••'));
+    const [allowedDomains, setAllowedDomains] = useState(getVal('allowed_email_domains', '@gmail.com, @hotmail.com, @outlook.com, @yahoo.com'));
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        setSmtpEnabled(getVal('smtp_enabled', 'false') === 'true');
+        setSmtpHost(getVal('smtp_host', 'smtp.gmail.com'));
+        setSmtpPort(getVal('smtp_port', '587'));
+        setSmtpUser(getVal('smtp_user', 'noreply@luminalib.com'));
+        setAllowedDomains(getVal('allowed_email_domains', '@gmail.com, @hotmail.com, @outlook.com, @yahoo.com'));
+    }, [configs]);
+
+    const handleSaveMailer = async () => {
+        setSaving(true);
+        try {
+            await update.mutateAsync({ key: 'smtp_enabled', data: { value: String(smtpEnabled) } });
+            onConfigUpdate();
+            setEditingSection(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save SMTP mailer setting', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveServer = async () => {
+        setSaving(true);
+        try {
+            await Promise.all([
+                update.mutateAsync({ key: 'smtp_host', data: { value: smtpHost } }),
+                update.mutateAsync({ key: 'smtp_port', data: { value: smtpPort } }),
+                update.mutateAsync({ key: 'smtp_user', data: { value: smtpUser } }),
+            ]);
+            if (smtpPass && smtpPass !== '••••••••') {
+                await update.mutateAsync({ key: 'smtp_pass', data: { value: smtpPass } });
+            }
+            onConfigUpdate();
+            setEditingSection(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save SMTP server credentials', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveDomains = async () => {
+        setSaving(true);
+        try {
+            await update.mutateAsync({ key: 'allowed_email_domains', data: { value: allowedDomains } });
+            onConfigUpdate();
+            setEditingSection(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save email domains policy', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors"
+            >
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <Mail className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100">SMTP Mail Server & Registration Security</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Email verification server controls and domain whitelist restrictions.</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                    <span className="text-xs font-semibold">{isOpen ? 'Hide' : 'Show'}</span>
+                    <ChevronDown className={cn('h-5 w-5 transition-transform duration-200', isOpen && 'rotate-180')} />
+                </div>
+            </div>
+
+            {isOpen && (
+                <div className="p-6 space-y-4 animate-fade-in text-sm">
+                    {saved && <StatusAlert type="success" msg="SMTP server and security configuration saved!" />}
+
+                    {/* Section 1: Verification Mailer Toggle */}
+                    {editingSection === "mailer" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="font-semibold text-slate-900 dark:text-white">Enable SMTP Verification Mailer</span>
+                                    <p className="text-xs text-slate-400">Send verification emails upon new user registration before admin review.</p>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={smtpEnabled}
+                                    onChange={(e) => setSmtpEnabled(e.target.checked)}
+                                    className="h-5 w-5 text-blue-600 rounded cursor-pointer"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingSection(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveMailer} disabled={saving} className="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Status'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div>
+                                <span className="font-semibold text-slate-900 dark:text-white">SMTP Verification Mailer</span>
+                                <p className="text-xs text-slate-400">Status of automated registration verification emails</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold", smtpEnabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300")}>
+                                    {smtpEnabled ? "ACTIVE" : "DISABLED"}
+                                </span>
+                                <Button
+                                    type="button"
+                                    onClick={() => setEditingSection("mailer")}
+                                    className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
+                                >
+                                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Section 2: Host, Port & Credentials */}
+                    {editingSection === "server" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <span className="font-semibold text-slate-900 dark:text-white">SMTP Server Credentials</span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <FormField label="SMTP Host Server" icon={<Server className="h-3 w-3" />}>
+                                    <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} className="h-9 rounded-xl text-xs font-mono" />
+                                </FormField>
+                                <FormField label="SMTP Port Number" icon={<Key className="h-3 w-3" />}>
+                                    <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} className="h-9 rounded-xl text-xs font-mono" />
+                                </FormField>
+                                <FormField label="Sender Mail Username" icon={<Mail className="h-3 w-3" />}>
+                                    <Input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} className="h-9 rounded-xl text-xs font-mono" />
+                                </FormField>
+                                <FormField label="Sender Password / App Token" icon={<Key className="h-3 w-3" />}>
+                                    <Input type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} className="h-9 rounded-xl text-xs font-mono" />
+                                </FormField>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingSection(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveServer} disabled={saving} className="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Server Settings'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-3.5 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 flex-1">
+                                <div>
+                                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Host Server</p>
+                                    <p className="font-mono text-xs text-slate-900 dark:text-slate-100 mt-0.5">{smtpHost}:{smtpPort}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Sender Username</p>
+                                    <p className="font-mono text-xs text-slate-900 dark:text-slate-100 mt-0.5">{smtpUser}</p>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={() => setEditingSection("server")}
+                                className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm ml-4 shrink-0"
+                            >
+                                <Edit3 className="h-3.5 w-3.5" /> Edit
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Section 3: Domain Whitelist */}
+                    {editingSection === "domains" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <FormField label="Allowed Registration Email Domains (Comma-Separated)" icon={<Globe className="h-3 w-3" />} hint="Only registrations ending with these domains will be accepted. Separated by commas.">
+                                <Input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} className="h-9 rounded-xl font-mono text-xs" />
+                            </FormField>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingSection(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveDomains} disabled={saving} className="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Whitelist Policy'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-3.5 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                            <div className="flex-1">
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Allowed Email Whitelist Domains</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {allowedDomains.split(',').map((domain, i) => (
+                                        <span key={i} className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-mono font-medium border border-blue-100 dark:border-blue-800">
+                                            {domain.trim()}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={() => setEditingSection("domains")}
+                                className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm ml-4 shrink-0"
+                            >
+                                <Edit3 className="h-3.5 w-3.5" /> Edit
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Social Media OAuth 2.0 Panel ──────────────────────────────────────────────
+
+function OAuthSettingsPanel({ configs, onConfigUpdate }: { configs: AppConfig[]; onConfigUpdate: () => void }) {
+    const update = useUpdateAppConfig();
+    const [isOpen, setIsOpen] = useState(false);
+    const [editingProvider, setEditingProvider] = useState<"google" | "microsoft" | "facebook" | null>(null);
+
+    const getVal = (key: string, def = '') => configs.find((c) => c.key === key)?.value || def;
+
+    const [googleAuth, setGoogleAuth] = useState(getVal('google_oauth_enabled', 'true') === 'true');
+    const [googleClientId, setGoogleClientId] = useState(getVal('google_client_id', ''));
+    const [googleClientSecret, setGoogleClientSecret] = useState(getVal('google_client_secret', ''));
+
+    const [msAuth, setMsAuth] = useState(getVal('microsoft_oauth_enabled', 'true') === 'true');
+    const [msClientId, setMsClientId] = useState(getVal('microsoft_client_id', ''));
+    const [msClientSecret, setMsClientSecret] = useState(getVal('microsoft_client_secret', ''));
+    const [msTenantId, setMsTenantId] = useState(getVal('microsoft_tenant_id', ''));
+
+    const [fbAuth, setFbAuth] = useState(getVal('facebook_oauth_enabled', 'true') === 'true');
+    const [fbAppId, setFbAppId] = useState(getVal('facebook_app_id', ''));
+    const [fbAppSecret, setFbAppSecret] = useState(getVal('facebook_app_secret', ''));
+
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        setGoogleAuth(getVal('google_oauth_enabled', 'true') === 'true');
+        setGoogleClientId(getVal('google_client_id', ''));
+        setGoogleClientSecret(getVal('google_client_secret', ''));
+
+        setMsAuth(getVal('microsoft_oauth_enabled', 'true') === 'true');
+        setMsClientId(getVal('microsoft_client_id', ''));
+        setMsClientSecret(getVal('microsoft_client_secret', ''));
+        setMsTenantId(getVal('microsoft_tenant_id', ''));
+
+        setFbAuth(getVal('facebook_oauth_enabled', 'true') === 'true');
+        setFbAppId(getVal('facebook_app_id', ''));
+        setFbAppSecret(getVal('facebook_app_secret', ''));
+    }, [configs]);
+
+    const handleSaveGoogle = async () => {
+        setSaving(true);
+        try {
+            await Promise.all([
+                update.mutateAsync({ key: 'google_oauth_enabled', data: { value: String(googleAuth) } }),
+                update.mutateAsync({ key: 'google_client_id', data: { value: googleClientId } }),
+                update.mutateAsync({ key: 'google_client_secret', data: { value: googleClientSecret } }),
+            ]);
+            onConfigUpdate();
+            setEditingProvider(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save Google OAuth settings', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveMicrosoft = async () => {
+        setSaving(true);
+        try {
+            await Promise.all([
+                update.mutateAsync({ key: 'microsoft_oauth_enabled', data: { value: String(msAuth) } }),
+                update.mutateAsync({ key: 'microsoft_client_id', data: { value: msClientId } }),
+                update.mutateAsync({ key: 'microsoft_client_secret', data: { value: msClientSecret } }),
+                update.mutateAsync({ key: 'microsoft_tenant_id', data: { value: msTenantId } }),
+            ]);
+            onConfigUpdate();
+            setEditingProvider(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save Microsoft OAuth settings', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveFacebook = async () => {
+        setSaving(true);
+        try {
+            await Promise.all([
+                update.mutateAsync({ key: 'facebook_oauth_enabled', data: { value: String(fbAuth) } }),
+                update.mutateAsync({ key: 'facebook_app_id', data: { value: fbAppId } }),
+                update.mutateAsync({ key: 'facebook_app_secret', data: { value: fbAppSecret } }),
+            ]);
+            onConfigUpdate();
+            setEditingProvider(null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save Facebook OAuth settings', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors"
+            >
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                        <Key className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100">Social Authentication (OAuth 2.0)</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Enable or disable 1-click Sign-In with Gmail, Microsoft, or Facebook.</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                    <span className="text-xs font-semibold">{isOpen ? 'Hide' : 'Show'}</span>
+                    <ChevronDown className={cn('h-5 w-5 transition-transform duration-200', isOpen && 'rotate-180')} />
+                </div>
+            </div>
+
+            {isOpen && (
+                <div className="p-6 space-y-4 animate-fade-in text-sm">
+                    {saved && <StatusAlert type="success" msg="Social OAuth SSO preferences updated!" />}
+
+                    {/* Google OAuth Row */}
+                    {editingProvider === "google" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="font-semibold text-slate-900 dark:text-white">Gmail / Google Single Sign-On</span>
+                                    <p className="text-xs text-slate-400">Allow users to log in with @gmail.com or Google Workspace accounts.</p>
+                                </div>
+                                <input type="checkbox" checked={googleAuth} onChange={(e) => setGoogleAuth(e.target.checked)} className="h-5 w-5 text-blue-600 rounded cursor-pointer" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                                <FormField label="Google Client ID">
+                                    <Input value={googleClientId} onChange={(e) => setGoogleClientId(e.target.value)} placeholder="xxxx.apps.googleusercontent.com" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                                <FormField label="Google Client Secret">
+                                    <Input type="password" value={googleClientSecret} onChange={(e) => setGoogleClientSecret(e.target.value)} placeholder="GOCSPX-xxxx" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingProvider(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveGoogle} disabled={saving} className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Google Settings'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div>
+                                <span className="font-semibold text-slate-900 dark:text-white">Gmail / Google Single Sign-On</span>
+                                <p className="text-xs text-slate-400">Allow users to log in with @gmail.com or Google Workspace accounts.</p>
+                                {googleClientId && <p className="text-xs font-mono text-slate-500 mt-1">Client ID: {googleClientId}</p>}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold", googleAuth ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400")}>
+                                    {googleAuth ? "ENABLED" : "DISABLED"}
+                                </span>
+                                <Button
+                                    type="button"
+                                    onClick={() => setEditingProvider("google")}
+                                    className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
+                                >
+                                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Microsoft OAuth Row */}
+                    {editingProvider === "microsoft" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="font-semibold text-slate-900 dark:text-white">Microsoft / Hotmail / Outlook SSO</span>
+                                    <p className="text-xs text-slate-400">Allow users to log in with @hotmail.com, @outlook.com or MS Entra accounts.</p>
+                                </div>
+                                <input type="checkbox" checked={msAuth} onChange={(e) => setMsAuth(e.target.checked)} className="h-5 w-5 text-blue-600 rounded cursor-pointer" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                <FormField label="Microsoft Application (Client) ID">
+                                    <Input value={msClientId} onChange={(e) => setMsClientId(e.target.value)} placeholder="client-uuid" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                                <FormField label="Microsoft Client Secret">
+                                    <Input type="password" value={msClientSecret} onChange={(e) => setMsClientSecret(e.target.value)} placeholder="secret-key" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                                <FormField label="Microsoft Directory (Tenant) ID">
+                                    <Input value={msTenantId} onChange={(e) => setMsTenantId(e.target.value)} placeholder="common or tenant-id" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingProvider(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveMicrosoft} disabled={saving} className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Microsoft Settings'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div>
+                                <span className="font-semibold text-slate-900 dark:text-white">Microsoft / Hotmail / Outlook SSO</span>
+                                <p className="text-xs text-slate-400">Allow users to log in with @hotmail.com, @outlook.com or MS Entra accounts.</p>
+                                {msClientId && <p className="text-xs font-mono text-slate-500 mt-1">Client ID: {msClientId}</p>}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold", msAuth ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400")}>
+                                    {msAuth ? "ENABLED" : "DISABLED"}
+                                </span>
+                                <Button
+                                    type="button"
+                                    onClick={() => setEditingProvider("microsoft")}
+                                    className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
+                                >
+                                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Facebook OAuth Row */}
+                    {editingProvider === "facebook" ? (
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="font-semibold text-slate-900 dark:text-white">Facebook Login</span>
+                                    <p className="text-xs text-slate-400">Allow users to log in with Meta / Facebook credentials.</p>
+                                </div>
+                                <input type="checkbox" checked={fbAuth} onChange={(e) => setFbAuth(e.target.checked)} className="h-5 w-5 text-blue-600 rounded cursor-pointer" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                                <FormField label="Facebook App ID">
+                                    <Input value={fbAppId} onChange={(e) => setFbAppId(e.target.value)} placeholder="app-id" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                                <FormField label="Facebook App Secret">
+                                    <Input type="password" value={fbAppSecret} onChange={(e) => setFbAppSecret(e.target.value)} placeholder="app-secret" className="h-9 rounded-xl font-mono text-xs" />
+                                </FormField>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => setEditingProvider(null)} className="h-8 px-3 rounded-lg text-xs">
+                                    Cancel
+                                </Button>
+                                <Button type="button" onClick={handleSaveFacebook} disabled={saving} className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs">
+                                    {saving ? 'Saving...' : 'Save Facebook Settings'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div>
+                                <span className="font-semibold text-slate-900 dark:text-white">Facebook Login</span>
+                                <p className="text-xs text-slate-400">Allow users to log in with Meta / Facebook credentials.</p>
+                                {fbAppId && <p className="text-xs font-mono text-slate-500 mt-1">App ID: {fbAppId}</p>}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold", fbAuth ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400")}>
+                                    {fbAuth ? "ENABLED" : "DISABLED"}
+                                </span>
+                                <Button
+                                    type="button"
+                                    onClick={() => setEditingProvider("facebook")}
+                                    className="h-8 px-3 rounded-lg text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
+                                >
+                                    <Edit3 className="h-3.5 w-3.5" /> Edit
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Edit/Create Modal ─────────────────────────────────────────────────────────
 
 function ConfigModal({ mode, config, onClose, onSuccess }: {
@@ -844,6 +1367,12 @@ export default function AppConfigPage() {
 
                 {/* Voice Assistant & Speech Settings Panel */}
                 <VoiceSettingsPanel />
+
+                {/* SMTP Server & Domain Security Settings Panel */}
+                <SMTPSettingsPanel configs={items} onConfigUpdate={handleLLMUpdate} />
+
+                {/* Social Media Authentication (OAuth 2.0) Panel */}
+                <OAuthSettingsPanel configs={items} onConfigUpdate={handleLLMUpdate} />
 
             </div>
 

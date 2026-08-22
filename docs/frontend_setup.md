@@ -103,10 +103,10 @@ All 11 test suites pass cleanly across core frontend modules:
 
 - **Admin Dynamic Config Page (`admin-config.test.tsx`)**: Validates rendering of settings, General Configurations section placement, modal triggers, search filtering, conditional `+ Add Config` button toggling, and unclipped LLM Provider dropdown menu.
 - **Admin User Management (`admin-users.test.tsx`)**: Asserts admin user table rendering, role switching, user blocking, and deletion workflows.
-- **Profile & Preferences (`profile.test.tsx`, `voice-settings.test.tsx`)**: Validates user profile updates, reading preference tags, Web Speech API audio sample testing, and smart disabled save button states.
-- **Authentication (`login.test.tsx`, `signup.test.tsx`)**: Validates form inputs, Zod schema validation errors, 12-character password constraints, and JWT session handling.
-- **Book Catalogue & Detail (`books.test.tsx`)**: Verifies book listing renders, PDF reader modal triggers, space-preserved text selection, saved highlights formatting, and review submission forms.
-- **AI Q&A Chat (`qa.test.tsx`)**: Validates question submission, RAG answer rendering, 1-click `✨ Answer` action buttons on assistant messages, and clean TTS speech synthesis logic.
+- **Profile & Preferences (`profile.test.tsx`, `voice-settings.test.tsx`)**: Validates user profile updates, avatar image persistence, primary/secondary mobile number validation, reading preference tags, Web Speech API audio sample testing, and smart disabled save button states.
+- **Authentication (`login.test.tsx`, `signup.test.tsx`)**: Validates form inputs, Zod schema validation errors, 12-character password constraints, password reset session revocation, and JWT session handling.
+- **Book Catalogue & Detail (`books.test.tsx`)**: Verifies book listing renders, PDF reader modal triggers, 8 frame themes, space-preserved text selection, saved highlights formatting, and review submission forms.
+- **AI Q&A Chat (`qa.test.tsx`)**: Validates Gemini-style question submission, RAG answer rendering, draft chat auto-filtering, interactive 3D glassmorphism deletion modal (`DeleteChatModal.tsx`), in-place prompt editing, in-place response regeneration (Redo), 1-click `✨ Answer` action buttons, and cross-browser Speech-to-Text via backend Whisper STT.
 
 ---
 
@@ -119,15 +119,17 @@ Lumina-frontend/
 │   │   ├── admin/config/    # Dynamic App Settings page (General Config top, LLM & Voice collapsed)
 │   │   ├── admin/users/     # User management table & role administration
 │   │   ├── books/           # Book catalogue & detail pages (/books/[id] with PDF reader & 8 frame themes)
-│   │   ├── qa/              # AI Q&A chat page with 1-click answer buttons & clean TTS
-│   │   ├── profile/         # Profile management & reading preferences
+│   │   ├── qa/              # AI Q&A chat page with Gemini-style UI, in-place edit/redo, 3D delete modal & Whisper STT
+│   │   ├── profile/         # Profile management, avatar upload & reading preferences
 │   │   ├── recommendations/ # Personalized ML book suggestions
+│   │   ├── dashboard/       # Streamlined user dashboard (clean header)
 │   │   ├── login/           # User authentication
 │   │   └── signup/          # Account registration
 │   ├── components/
 │   │   ├── ui/              # Buttons, inputs, status alerts, modals
 │   │   ├── books/           # Book cards, review forms, summary modals
 │   │   ├── pdf/             # Integrated PDF viewer with 8 frame themes & enlarged thumbnail sidebar (w-80)
+│   │   ├── qa/              # DeleteChatModal.tsx (3D glassmorphism deletion modal) & QA formatting
 │   │   ├── voice/           # Floating voice widget & slide-over panel
 │   │   └── layout/          # Sidenav, navbar, DashboardLayout
 │   ├── context/             # AuthContext (JWT state management)

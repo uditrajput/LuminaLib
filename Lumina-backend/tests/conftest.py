@@ -3,6 +3,7 @@ import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
+from fastapi import Request
 from luminalib.main import app
 from luminalib.api.v1.deps import get_db, get_current_user, require_admin
 from luminalib.db.base import Base
@@ -22,19 +23,20 @@ async def db_session():
         await conn.run_sync(Base.metadata.create_all)
     
     async with TestingSessionLocal() as session:
-        # Seed basic roles and user
-        admin_role = Role(id=1, name="admin", created_by="test", updated_by="test")
-        user_role = Role(id=2, name="user", created_by="test", updated_by="test")
-        session.add_all([admin_role, user_role])
+        from luminalib.core.rbac import DEFAULT_ROLE_PERMISSIONS
+        admin_role = Role(id=1, name="admin", is_system=True, permissions_json=DEFAULT_ROLE_PERMISSIONS["admin"], created_by="test", updated_by="test")
+        teacher_role = Role(id=2, name="teacher", is_system=True, permissions_json=DEFAULT_ROLE_PERMISSIONS["teacher"], created_by="test", updated_by="test")
+        user_role = Role(id=3, name="user", is_system=True, permissions_json=DEFAULT_ROLE_PERMISSIONS["user"], created_by="test", updated_by="test")
+        session.add_all([admin_role, teacher_role, user_role])
         await session.flush()
         
         test_user = User(
             id=1, email="test@test.com", hashed_password="pw", 
-            role_id=2, is_active=True, created_by="t", updated_by="t"
+            role_id=3, status="active", is_active=True, created_by="t", updated_by="t"
         )
         admin_user = User(
             id=2, email="admin@test.com", hashed_password="pw", 
-            role_id=1, is_active=True, bio="Library Administrator",
+            role_id=1, status="active", is_active=True, bio="Library Administrator",
             created_by="t", updated_by="t"
         )
         sys_config = SystemConfig(
@@ -54,10 +56,12 @@ async def client(db_session):
     async def override_get_db():
         yield db_session
         
-    async def override_get_current_user():
+    async def override_get_current_user(request: Request):
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
-        result = await db_session.execute(select(User).options(selectinload(User.role)).where(User.id == 1))
+        auth = request.headers.get("authorization", "")
+        uid = 2 if "mock_admin_token" in auth else 1
+        result = await db_session.execute(select(User).options(selectinload(User.role)).where(User.id == uid))
         return result.scalar_one()
 
     async def override_require_admin():
@@ -101,3 +105,8 @@ async def client(db_session):
         yield c
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def admin_token_headers():
+    return {"Authorization": "Bearer mock_admin_token"}

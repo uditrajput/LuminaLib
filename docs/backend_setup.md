@@ -74,6 +74,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/luminalib
 REDIS_URL=redis://localhost:6379/0
 JWT_SECRET=your-secret-key-change-in-production
 JWT_ALGORITHM=HS256
+VOICE_SERVICE_URL=http://localhost:8001
 ```
 
 ### Step 3: Setup Virtual Environment & Install Dependencies
@@ -138,12 +139,12 @@ pytest --cov=luminalib --cov-report=term-missing
 
 ### 🧪 Core Test Coverage (34 Passing Tests)
 
-1. **Authentication (`test_auth.py`)**: Signup validation (email format, 12-char strict password requirements), JWT generation, profile fetching/updates.
+1. **Authentication (`test_auth.py`)**: Signup validation (email format, 12-char strict password requirements), JWT generation, password reset session revocation, profile fetching/updates (avatar persistence & unique primary/secondary mobile numbers).
 2. **Books Management (`test_books.py`)**: Book CRUD operations, paginated queries, file upload ingestion mocks, metadata updates, deletion.
 3. **Borrow Lifecycle (`test_reviews_and_borrows.py`)**: Borrow and return workflows, availability state toggles, conflict checks.
 4. **Review System (`test_reviews_and_borrows.py`)**: Enforcing borrow-before-review constraint, rating range checks, rolling review consensus calculation.
-5. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling.
-6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, log scrubbing, available Kokoro voice listing, conversation transcript history management.
+5. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling, in-place prompt edit & redo regeneration.
+6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, Whisper STT proxy transcription (`POST /api/v1/voice/transcribe`), log scrubbing, available Kokoro voice listing, conversation transcript history management.
 7. **Dynamic App Configs (`test_config.py`, `test_docker_llm_provider.py`)**: Loading and updating `app_configs` table key-value pairs at runtime.
 
 ---
@@ -154,4 +155,5 @@ pytest --cov=luminalib --cov-report=term-missing
 2. **Authorize**: Paste the token into the `Authorize` button at the top of Swagger (`http://localhost:8000/docs`).
 3. **Upload a Book**: Call `POST /api/v1/books` with metadata and attach a sample PDF file.
 4. **Q&A & Practice Questions**: Call `POST /api/v1/qa` with `{"question": "Ask me 5 questions on Python"}` to test topic practice question generation.
-5. **Dynamic App Settings**: Call `GET /api/v1/config` and `PUT /api/v1/config` to verify runtime configuration updates.
+5. **Whisper Speech-to-Text Proxy**: Call `POST /api/v1/voice/transcribe` with audio form data to verify backend audio transcription.
+6. **Dynamic App Settings**: Call `GET /api/v1/config` and `PUT /api/v1/config` to verify runtime configuration updates.

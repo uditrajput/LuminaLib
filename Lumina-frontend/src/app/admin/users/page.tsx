@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import RolesManagement from "@/components/admin/RolesManagement";
+import { UserGroupsManagement } from "@/components/admin/UserGroupsManagement";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import {
@@ -70,14 +72,21 @@ function RoleBadge({ role }: { role: string }) {
     );
 }
 
-function StatusBadge({ isActive }: { isActive: boolean }) {
-    return isActive ? (
+function StatusBadge({ user }: { user: User }) {
+    if (user.is_locked) {
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                <Lock className="h-3 w-3" /> Locked
+            </span>
+        );
+    }
+    return (user.is_active ?? true) ? (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
             <CheckCircle2 className="h-3 w-3" /> Active
         </span>
     ) : (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-            <Lock className="h-3 w-3" /> Blocked
+            <UserX className="h-3 w-3" /> Blocked
         </span>
     );
 }
@@ -346,6 +355,7 @@ export default function AdminUsersPage() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
+    const [activeTab, setActiveTab] = useState<"users" | "roles" | "groups">("users");
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -356,13 +366,11 @@ export default function AdminUsersPage() {
 
     const SIZE = 10;
 
-    // Debounce search
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 350);
         return () => clearTimeout(t);
     }, [search]);
 
-    // Auth guard
     useEffect(() => {
         if (!authLoading && user && user.role !== "admin") router.replace("/");
         if (!authLoading && !user) router.replace("/login");
@@ -404,6 +412,16 @@ export default function AdminUsersPage() {
         );
     };
 
+    const handleUnlock = (target: User) => {
+        updateUser.mutate(
+            { id: Number(target.id), data: { is_locked: false } },
+            {
+                onSuccess: () => showToast("success", `User account unlocked.`),
+                onError: (e) => showToast("error", e instanceof Error ? e.message : `Failed to unlock user.`),
+            }
+        );
+    };
+
     if (authLoading || !user) return null;
 
     const stats = statsQuery.data;
@@ -420,16 +438,62 @@ export default function AdminUsersPage() {
                     </div>
                 )}
 
-                {/* Page header */}
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                {/* Page header with Roles.png Tab Switcher */}
+                <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">User Management</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Create, edit, and manage all users in the system.</p>
+                        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Users & Roles</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Configure Role-Based Access Control (RBAC), user statuses, and permission tiers.</p>
                     </div>
-                    <Button onClick={() => setModal({ mode: "create" })} className="h-10 px-5 rounded-xl gap-2 shadow-sm">
-                        <Plus className="h-4 w-4" /> Add User
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <div className="inline-flex bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl text-sm font-medium border border-slate-200/80 dark:border-slate-600/80">
+                            <button
+                                onClick={() => setActiveTab("users")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                                    activeTab === "users"
+                                        ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm font-bold"
+                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                            >
+                                <Users className="w-4 h-4" />
+                                Users Directory
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("roles")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                                    activeTab === "roles"
+                                        ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm font-bold"
+                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                            >
+                                <Shield className="w-4 h-4" />
+                                Roles & Permissions
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("groups")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                                    activeTab === "groups"
+                                        ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm font-bold"
+                                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                            >
+                                <Users className="w-4 h-4 text-indigo-500" />
+                                User Groups
+                            </button>
+                        </div>
+                        {activeTab === "users" && (
+                            <Button onClick={() => setModal({ mode: "create" })} className="h-10 px-5 rounded-xl gap-2 shadow-sm">
+                                <Plus className="h-4 w-4" /> Add User
+                            </Button>
+                        )}
+                    </div>
                 </div>
+
+                {activeTab === "roles" ? (
+                    <RolesManagement />
+                ) : activeTab === "groups" ? (
+                    <UserGroupsManagement />
+                ) : (
+                    <>
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -528,7 +592,7 @@ export default function AdminUsersPage() {
                                             <RoleBadge role={u.role} />
                                         </div>
                                         <div className="w-24 flex justify-center">
-                                            <StatusBadge isActive={u.is_active ?? true} />
+                                            <StatusBadge user={u} />
                                         </div>
                                         <div className="w-24 text-center">
                                             <span className="text-xs text-slate-400">
@@ -536,6 +600,16 @@ export default function AdminUsersPage() {
                                             </span>
                                         </div>
                                         <div className="w-24 flex justify-end gap-1">
+                                            {u.is_locked && (
+                                                <button
+                                                    onClick={() => handleUnlock(u)}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                                                    title="Unlock account"
+                                                    disabled={updateUser.isPending}
+                                                >
+                                                    <Unlock className="h-4 w-4" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => handleToggleBlock(u)}
                                                 className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${(u.is_active ?? true)
@@ -597,6 +671,8 @@ export default function AdminUsersPage() {
                         </>
                     )}
                 </div>
+                </>
+                )}
 
             </div>
 

@@ -10,20 +10,31 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 - Navigate to the **Signup** page (`/signup`).
 - Requirements: A valid email address and a strong password (minimum 12 characters, including uppercase, lowercase, numbers, and symbols).
 
-### Logging In
+### Logging In & Password Reset
 - Navigate to the **Login** page (`/login`).
 - **Default Admin Credentials**:
   - **Email**: `udit.rajput@hotmail.com`
   - **Password**: `Admin@12345!`
+- **Password Reset & Session Revocation**: When a user resets their password, active authentication sessions are automatically invalidated and signed out, requiring re-login with the new credentials.
 
 ### Profile Management
 - Click on the **Profile** icon in the navigation bar (`/profile`).
-- Update your personal details (Full Name, Bio) and security settings.
-- Direct link to **Voice Settings** (`/profile/voice-settings`) to configure your preferred speech synthesis parameters.
+- **Profile Picture Upload**: Upload and save custom avatar images with automatic persistence when updating profile information.
+- **Mobile Number Validation**: Enforces strict contact validation — **Primary Mobile Number** and **Secondary Mobile Number** cannot be identical.
+- Update personal details (Full Name, Bio) and security settings.
+- Direct link to **Voice Settings** (`/profile/voice-settings`) to configure preferred speech synthesis parameters.
 
 ---
 
-## 📚 2. Library Management & PDF Reading Experience
+## 📊 2. User Dashboard
+
+### Clean & Focused Interface (`/dashboard`)
+- Streamlined user dashboard displaying borrowed book stats, active reading sessions, and quick recommendations.
+- **Optimized Header**: Removed non-functioning search bar and notification bell icon for a clean, distraction-free UX focused entirely on user library activity.
+
+---
+
+## 📚 3. Library Management & PDF Reading Experience
 
 ### Browsing the Collection
 - The **Books** page (`/books`) displays a responsive grid and paginated list of available books.
@@ -62,7 +73,7 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 
 ---
 
-## ⭐ 3. Feedback & Reviews
+## ⭐ 4. Feedback & Reviews
 
 ### Submitting a Review
 - **Requirement**: Users must have borrowed the book at least once to leave a review.
@@ -72,38 +83,49 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 
 ---
 
-## 🤖 4. AI Intelligence & Q&A (`/qa`)
+## 🤖 5. AI Intelligence & Interactive Q&A (`/qa`)
 
 ### AI Book Summaries
 - Every uploaded book receives an automated AI-generated summary.
 - View this on the book detail page for a quick 5-point overview.
 
+### Gemini-Style Chat Interface & Sessions
+- **Persistent Chat History**: Left sidebar lists past Q&A sessions with auto-generated session titles based on the initial question.
+- **Draft Chat Auto-Filtering**: Clicking **New Chat** creates a fresh draft. If no question is asked, empty draft sessions are automatically filtered out and never saved to history.
+- **Interactive 3D Glassmorphism Deletion Modal**: Deleting a conversation triggers a sleek glassmorphism confirmation modal (`DeleteChatModal.tsx`).
+- **Independent Page Scrolling**: Locked outer QA viewport with independent vertical scrolling for chat history (`scrollbar-thin`).
+
+### Prompt Editing & In-Place Updates
+- **Gemini-Style Prompt Editor**: Clicking **Edit** on a user prompt opens a rounded Gemini-style editor container with a transparent auto-resizing textarea and pill buttons (**Cancel** & **Update**).
+- **In-Place Response Refresh**: Saving an edited prompt replaces the message in-place, truncates downstream old AI responses, and fetches a fresh AI response without duplicating messages.
+
+### In-Place Response Regeneration (Redo)
+- **Redo Action**: Clicking **Redo** on an assistant response regenerates the answer **in-place** (with spinning loading feedback) using the associated user prompt text.
+- **Clean Stream**: Avoids creating duplicate user prompt bubbles or appending redundant chat entries.
+
 ### Document Ingestion & Q&A (RAG Pipeline)
-- Navigate to the **QA** section (`/qa`).
 - Ask questions against the ingested documents of your borrowed books using the natural language prompt input.
-- The system ground answers in your library's content using the RAG pipeline.
+- Ground answers in your library's content using the vector RAG pipeline.
 
 ### High-Yield Topic Practice Questions
-- When you ask the AI assistant to generate practice questions on a topic (e.g. *"Ask me questions on Python"*, *"Ask me a question on Operating Systems"*, or *"Give me 5 questions on HTTP"*):
-  - The AI assistant generates the **most frequently asked, high-yield exam and interview questions** for that specific topic.
-  - Questions are formatted in a clean table or structured list.
+- When you ask the AI assistant to generate practice questions on a topic (e.g. *"Ask me questions on Python"*, *"Ask me a question on Operating Systems"*):
+  - Generates frequently asked, high-yield exam and interview questions formatted in structured tables or lists.
+- **1-Click `✨ Answer` Action Buttons**: Interactive `✨ Answer` buttons appear exclusively under assistant messages for 1-click prompt execution.
 
-### 1-Click `✨ Answer` Action Buttons
-- Every question generated by the AI assistant in Markdown tables or lists includes an interactive **`✨ Answer`** button beneath it.
-- Click **`✨ Answer`** on any question to instantly prompt the AI assistant for a detailed explanation.
-- Action buttons are displayed **exclusively under AI assistant messages** (never under user prompts).
+### Dual-Mode Speech-to-Text (STT) & Mozilla Firefox Support
+- **Chrome / Edge**: Uses native Web Speech API `SpeechRecognition` for real-time live transcript streaming.
+- **Mozilla Firefox / Cross-Browser Fallback**:
+  - Automatically captures audio stream via `MediaRecorder` with live animated sound spectrum waves.
+  - On stop, sends audio bytes to backend Whisper STT (`POST /api/v1/voice/transcribe` -> `Lumina-voice` `POST /voice/transcribe` via `faster-whisper`).
+  - Automatically populates transcribed text into the prompt input box and submits the question.
 
-### Clean Speech Synthesis (Voice Narration)
+### Clean Speech Synthesis (TTS Voice Narration)
 - Click the speaker icon on any response or use Voice Mode to hear answers read aloud.
-- The TTS engine automatically strips non-meaningful metadata before speaking:
-  - Strips page number phrases (e.g. *"On Page 12"*, *"p. 14"*, *"Pages 3 to 5"*).
-  - Strips citation markers (e.g. `[1]`, `(Excerpt 2)`).
-  - Strips table pipe symbols (`|`), action headers (`| Action |`), dashes (`---`), and Markdown bold asterisks (`**`).
-  - Ensures pure, natural, and meaningful speech narration.
+- Strips page number phrases (*"On Page 12"*), citations (`[1]`), table pipes (`|`), and formatting symbols for natural speech.
 
 ---
 
-## 💡 5. Personalized Recommendations
+## 💡 6. Personalized Recommendations
 
 ### Setting Preferences
 - Go to your **Profile** (`/profile`) and navigate to **Reading Preferences**.
@@ -115,7 +137,7 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 
 ---
 
-## 🎙️ 6. Voice AI Assistant (Hands-Free Interaction)
+## 🎙️ 7. Voice AI Assistant (Hands-Free Interaction)
 
 ### Floating Voice Widget & Slide-Over Panel
 - A persistent microphone widget floats at the bottom-right of every page.
@@ -126,44 +148,34 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 - **Book Q&A**: Ask *"What is this book about?"* or *"Summarize chapter 2"* to hear AI answers read aloud.
 - **Voice Actions**: Say *"Borrow this book"*, *"Return this book"*, or *"Leave a 5-star review: excellent explanation"*.
 - **Confirmation Flow**: Destructive actions trigger a 30-second voice or click confirmation (*"Say confirm to proceed"*).
-- **Voice Preferences**: Select your preferred Kokoro TTS voice model (`af_bella`, `am_adam`, `bf_emma`, etc.), speech rate, and transcript display options.
-- **Voice Sample Previewing**: Click **`Test Active Voice`** in Voice Settings to hear an instant, natural Web Speech API audio sample preview in human voice.
+- **Voice Preferences & Previewing**: Select your preferred Kokoro TTS voice model (`af_bella`, `am_adam`, `bf_emma`, etc.), speech rate, and test voice samples with **`Test Active Voice`**.
 
 ---
 
-## ⚙️ 7. System Administration (Admin Only)
+## ⚙️ 8. System Administration (Admin Only)
 
 ### Dynamic App Settings (`/admin/config`)
-Reorganized configuration dashboard accessible to Admin users:
-
-1. **General Configurations (Top Section, Default Open)**:
-   - Placed at the very top of the page.
-   - Search by key name or description.
-   - Click **`+ Add Config`** directly in the section header bar to define custom key-value settings. The **`+ Add Config`** button automatically hides when the section is collapsed (`Hide`).
-2. **LLM Provider Panel (Default Collapsed)**:
-   - Positioned second with a collapsible header.
-   - Dynamic selection between **Docker Model Runner**, **OpenRouter**, **Ollama**, **OpenAI**, and **Mock**.
-   - Dropdown menu opens in an unclipped, scrollable overlay (`max-h-72 overflow-y-auto z-50`).
-   - Input and update API keys dynamically without modifying `.env` files or restarting containers.
-3. **Voice Assistant & Speech Settings Panel (Default Collapsed)**:
-   - Positioned third with a collapsible header.
-   - Configure Kokoro TTS voice model, speech speed (0.5x–2.0x), auto-play, and transcript display.
-   - Smart **`Save Voice Settings`** button remains disabled when settings match loaded baseline preferences, activating only when changes occur.
+1. **General Configurations (Top Section, Default Open)**: Search, edit, and add custom key-value configurations (`+ Add Config` button automatically hides when collapsed).
+2. **LLM Provider Panel (Default Collapsed)**: Switch dynamically between Docker Model Runner, OpenRouter, Ollama, OpenAI, and Mock. Dropdown menu opens in an unclipped, scrollable overlay (`max-h-72 overflow-y-auto z-50`).
+3. **Voice Assistant & Speech Settings Panel (Default Collapsed)**: Configure Kokoro TTS voice model, speech speed, auto-play, and smart disabled save button state management.
 
 ### User Management (`/admin/users`)
 - View registered users, assign roles (Admin/User), block accounts, or delete user profiles.
 
 ### Observability & Telemetry (Grafana & Loki)
-- Admins can click the **Grafana** item in the main navigation bar.
-- Uses Next.js Edge Middleware SSO proxying to seamlessly open pre-configured Grafana dashboards displaying live backend and frontend Loki logs.
+- Admins can click **Grafana** in the navigation bar to access live backend/frontend Loki logs via Edge Middleware SSO proxying.
 
 ---
 
 ## 🧪 Quick Verification Checklist
 
-1. **Login** as Admin (`udit.rajput@hotmail.com` / `Admin@12345!`).
-2. **App Settings**: Go to `/admin/config`. Confirm General Configurations is open at the top with `+ Add Config`. Expand LLM Provider to select your active model.
-3. **Book & PDF Reader**: Open a book (`/books/[id]`). Switch between the 8 frame themes. Toggle the thumbnail sidebar (`w-80`) and test text search.
-4. **AI Q&A**: Go to `/qa` and type *"Ask me 5 questions on Python"*. Verify high-yield questions appear with 1-click `✨ Answer` buttons under the AI response.
-5. **Clean Voice Mode**: Click the speaker icon to verify page numbers and table pipes are omitted during speech narration.
-6. **Voice Panel**: Click the floating microphone widget to test hands-free voice Q&A and voice action workflows.
+1. **Login & Password Reset**: Reset password to verify active sessions sign out and require fresh login.
+2. **Profile Validation**: Verify profile picture persists on update and primary/secondary mobile numbers cannot be identical.
+3. **Dashboard**: Verify search bar and bell icon are removed from user dashboard.
+4. **AI Q&A (`/qa`)**:
+   - Click "New Chat" without asking a question -> confirm empty draft is not saved in history.
+   - Edit prompt -> confirm prompt replaces in-place and downstream responses update.
+   - Click **Redo** on AI response -> confirm response regenerates in-place without prompt duplication.
+   - Test Voice-to-Text in Mozilla Firefox -> confirm audio wave animation and Whisper STT auto-submission.
+5. **PDF Reader**: Open `/books/[id]` and test 8 frame themes, thumbnail sidebar (`w-80`), and space-preserved text selection.
+6. **App Settings**: Access `/admin/config` to manage LLM providers and voice parameters.

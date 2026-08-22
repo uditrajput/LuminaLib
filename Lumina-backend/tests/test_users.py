@@ -47,3 +47,18 @@ async def test_admin_create_user_with_bio(client):
     )
     assert response.status_code == 201
     assert response.json()["data"]["bio"] == "Researcher"
+
+
+@pytest.mark.asyncio
+async def test_update_profile_same_mobile_number_rejected(client):
+    response = await client.put(
+        "/api/v1/auth/profile",
+        json={
+            "contact_info": {
+                "primary_mobile": "9810795310",
+                "secondary_mobile": "9810795310"
+            }
+        }
+    )
+    assert response.status_code == 422
+

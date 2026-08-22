@@ -6,9 +6,9 @@ import { BookCard } from "./BookCard";
 import { Library, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "../ui/Button";
 
-export function BookList({ searchQuery = "" }: { searchQuery?: string }) {
+export function BookList({ searchQuery = "", catalog = "public" }: { searchQuery?: string; catalog?: string }) {
     const [page, setPage] = useState(1);
-    const { data, isLoading, isError, error, refetch } = useBooks(page, 12, searchQuery);
+    const { data, isLoading, isError, error, refetch } = useBooks(page, 12, searchQuery, catalog);
 
     if (isLoading) {
         return (

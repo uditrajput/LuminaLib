@@ -1,6 +1,7 @@
 # ───────────────────────────────────────────────────────────────────────────────
 # LuminaLib – Full-Stack Docker Compose
-# Services: postgres | redis | backend (FastAPI) | frontend (Next.js)
+# Services: postgres | redis | backend (FastAPI) | voice (FastAPI) | frontend (Next.js) | loki | grafana
+# Single Command Build & Deploy: docker-compose up --build -d
 # ───────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -70,6 +71,12 @@ services:
         condition: service_healthy
     volumes:
       - ./Lumina-backend/storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # ── Voice AI Assistant (FastAPI + Pipecat / Kokoro / Whisper) ─────────────────
   voice:
@@ -97,9 +104,18 @@ services:
       - ./Lumina-voice/models:/app/models
       - ./Lumina-backend/storage:/app/storage:ro
     depends_on:
-      - backend
-      - redis
-      - postgres
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/voice/voices')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 25s
 
   # ── Next.js Frontend ──────────────────────────────────────────────────────────
   frontend:
@@ -141,6 +157,8 @@ services:
     restart: unless-stopped
     networks:
       - lumina-net
+    ports:
+      - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin # Change in production

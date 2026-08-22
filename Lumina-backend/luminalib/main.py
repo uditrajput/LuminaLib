@@ -70,17 +70,80 @@ async def _migrate_role_schema() -> None:
         ))
         old_col = result.fetchone()
 
+        # Ensure roles table columns exist
+        col_check = await conn.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='roles'"
+        ))
+        existing_cols = {row[0] for row in col_check.fetchall()}
+        if "is_system" not in existing_cols:
+            await conn.execute(text("ALTER TABLE roles ADD COLUMN is_system BOOLEAN DEFAULT FALSE"))
+            await conn.execute(text("UPDATE roles SET is_system = TRUE WHERE name IN ('admin', 'teacher', 'user')"))
+        if "description" not in existing_cols:
+            await conn.execute(text("ALTER TABLE roles ADD COLUMN description TEXT"))
+        if "permissions_json" not in existing_cols:
+            await conn.execute(text("ALTER TABLE roles ADD COLUMN permissions_json JSONB DEFAULT '[]'::jsonb"))
+        if "created_at" not in existing_cols:
+            await conn.execute(text("ALTER TABLE roles ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"))
+
+        # Ensure users table columns exist
+        u_check = await conn.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='users'"
+        ))
+        u_cols = {row[0] for row in u_check.fetchall()}
+        if "status" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR(50) DEFAULT 'ACTIVE'"))
+        if "email_verified" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT TRUE"))
+        if "verification_token" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR(255)"))
+        if "failed_login_attempts" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0 NOT NULL"))
+        if "is_locked" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT FALSE NOT NULL"))
+        if "profile_completed" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN profile_completed BOOLEAN DEFAULT FALSE NOT NULL"))
+        if "dob" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN dob VARCHAR(50)"))
+        if "profession" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN profession VARCHAR(100)"))
+        if "hobbies" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN hobbies JSON"))
+        if "interests" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN interests JSON"))
+        if "favorite_topics" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN favorite_topics JSON"))
+        if "favorite_genres" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN favorite_genres JSON"))
+        if "reading_preferences" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN reading_preferences JSON"))
+        if "preferred_language" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN preferred_language VARCHAR(50)"))
+        if "education_records" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN education_records JSON"))
+        if "contact_info" not in u_cols:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN contact_info JSON"))
+
+        # Ensure books table columns exist
+        b_check = await conn.execute(text(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='books'"
+        ))
+        b_cols = {row[0] for row in b_check.fetchall()}
+        if "access_level" not in b_cols:
+            await conn.execute(text("ALTER TABLE books ADD COLUMN access_level VARCHAR(20) DEFAULT 'public'"))
+        if "created_by_user_id" not in b_cols:
+            await conn.execute(text("ALTER TABLE books ADD COLUMN created_by_user_id INTEGER"))
+
         if old_col and old_col[1] in ('character varying', 'text'):
             logger.info("Detected old users.role VARCHAR column — migrating to role_id FK…")
 
-            for rn in ('admin', 'user', 'librarian'):
+            for rn in ('admin', 'teacher', 'user', 'librarian'):
                 exists = await conn.execute(text(
                     "SELECT id FROM roles WHERE name = :n"
                 ), {"n": rn})
                 if not exists.fetchone():
                     await conn.execute(text(
-                        "INSERT INTO roles (name, created_by, updated_by, created_date, updated_date) "
-                        "VALUES (:n, 'system', 'system', NOW(), NOW())"
+                        "INSERT INTO roles (name, is_system, created_by, updated_by, created_date, updated_date) "
+                        "VALUES (:n, TRUE, 'system', 'system', NOW(), NOW())"
                     ), {"n": rn})
 
             rid_check = await conn.execute(text(
@@ -293,11 +356,15 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(LuminaBaseException, lumina_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
+from luminalib.api.v1.endpoints import admin_dashboard, ai, app_configs, auth, books, config, documents, groups, ingestion, qa, recommendations, reviews, roles, users, voice
+
 # ── Routers ─────────────────────────────────────────────
 _prefix = settings.api_v1_prefix
 
 app.include_router(auth.router, prefix=_prefix)
 app.include_router(users.router, prefix=_prefix)
+app.include_router(roles.router, prefix=_prefix)
+app.include_router(groups.router, prefix=_prefix)
 app.include_router(books.router, prefix=_prefix)
 app.include_router(reviews.router, prefix=_prefix)
 app.include_router(recommendations.router, prefix=_prefix)
@@ -308,6 +375,7 @@ app.include_router(qa.router, prefix=_prefix)
 app.include_router(ai.router, prefix=_prefix)
 app.include_router(app_configs.router, prefix=_prefix)
 app.include_router(voice.router, prefix=_prefix)
+app.include_router(admin_dashboard.router, prefix=_prefix)
 
 
 # ── Health check ────────────────────────────────────────
@@ -340,6 +408,17 @@ async def serve_cover(filename: str):
     file_path = covers_dir / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Cover image not found")
+    return FileResponse(file_path)
+
+
+@app.get("/avatars/{filename}", tags=["avatars"], summary="Serve an uploaded avatar image")
+async def serve_avatar(filename: str):
+    storage_path = get_dynamic("storage_path", "./storage")
+    avatars_dir = _Path(storage_path) / "avatars"
+    avatars_dir.mkdir(parents=True, exist_ok=True)
+    file_path = avatars_dir / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Avatar image not found")
     return FileResponse(file_path)
 
 

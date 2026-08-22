@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BookCreate(BaseModel):
@@ -42,6 +42,9 @@ class BookRead(BaseModel):
     content_type: str | None = None
     file_size: int | None = None
     cover_image_url: str | None = None
+    access_level: str = "public"
+    created_by_user_id: int | None = None
+    group_ids: list[int] = Field(default_factory=list)
     summary: str | None = None
     review_summary: str | None = None
     created_by: str | None = None
@@ -50,6 +53,15 @@ class BookRead(BaseModel):
     updated_date: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("group_ids", mode="before")
+    @classmethod
+    def extract_group_ids(cls, v, info):
+        if v is None:
+            return []
+        if isinstance(v, list) and v and hasattr(v[0], "group_id"):
+            return [e.group_id for e in v]
+        return v or []
 
 
 class BookSummaryRead(BaseModel):

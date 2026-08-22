@@ -80,9 +80,10 @@
 
 | Category | Features |
 |----------|----------|
-| **🔐 Authentication** | JWT-based stateless auth, signup/login/logout, profile management, role-based access (admin/user) |
+| **🔐 Authentication** | JWT-based stateless auth, signup/login/logout, password reset session revocation, profile management with avatar persistence & unique primary/secondary mobile numbers |
 | **📚 Book Management** | Full CRUD, file upload (PDF/text), content extraction, paginated listing |
 | **🤖 AI Intelligence** | Async book summarization, review sentiment analysis, rolling consensus generation |
+| **🎙️ Voice & Audio** | Bi-directional WebSocket stream, Whisper STT audio transcription proxy (`POST /api/v1/voice/transcribe`), Kokoro TTS voice listing |
 | **📊 Recommendations** | Content-based filtering, TF-IDF similarity (scikit-learn), user preference-driven |
 | **📖 Borrow System** | Borrow/return lifecycle, constraint enforcement (must borrow before reviewing) |
 | ⭐ **Reviews** | Submit reviews with ratings, automatic AI analysis of review corpus |

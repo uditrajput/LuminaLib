@@ -13,7 +13,25 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 2. RAG Prompting & High-Yield Topic Question Generation
+## 2. Gemini-Style Interactive Q&A & In-Place State Management
+**Decision:** Interactive Gemini-inspired Q&A architecture (`/qa`) with session draft management, in-place prompt editing, and in-place response regeneration (Redo).
+**Why:**
+- **Draft Session Filtering:** Clicking **New Chat** initializes a transient session draft. If the user switches chats or clicks "New Chat" without sending a query, empty draft sessions are automatically filtered out and omitted from database history.
+- **In-Place Prompt Updating:** Editing a prompt renders a rounded Gemini-style editor container (`rounded-3xl`). On save, downstream messages are truncated and updated in-place without generating redundant chat bubbles.
+- **In-Place Response Regeneration (Redo):** Clicking **Redo** targets the specific assistant message index and re-queries the AI backend using the associated prompt text. The response is updated in-place (with loading spinner feedback), preventing prompt duplication or chat stream pollution.
+- **Interactive Deletion Modal:** Uses a 3D glassmorphism dialog modal (`DeleteChatModal.tsx`) for non-blocking session deletion feedback.
+
+---
+
+## 3. Cross-Browser Dual-Engine Speech Recognition (Firefox & Whisper STT)
+**Decision:** Hybrid Speech-to-Text (STT) architecture supporting native Web Speech API for Chromium browsers and `MediaRecorder` + Whisper AI fallback for Mozilla Firefox and Safari.
+**Why:**
+- **Firefox Compatibility:** Mozilla Firefox lacks native Web Speech API STT out-of-the-box. The frontend detects API availability and seamlessly falls back to `MediaRecorder` audio capture with live spectrum wave animation.
+- **Microservice STT Proxy:** Audio blobs recorded in Firefox are submitted via `POST /api/v1/voice/transcribe` (proxied in `Lumina-backend`) to `Lumina-voice` (`POST /voice/transcribe`), where `faster-whisper` transcribes raw audio bytes into text for instant submission.
+
+---
+
+## 4. RAG Prompting & High-Yield Topic Question Generation
 **Decision:** Enhance the RAG system prompt (`luminalib/api/v1/endpoints/qa.py`) to recognize topic practice requests and deliver structured high-yield questions with 1-click action hooks.
 **Why:**
 - **Exam & Interview Practice:** When users ask *"Ask me questions on [topic]"* (e.g. Python, Operating Systems, HTTP), the system prompt directs the LLM to select the most frequently asked, high-yield exam and interview questions for that topic.
@@ -21,7 +39,7 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 3. Speech Synthesis (TTS) Narration Filtering Pipeline
+## 5. Speech Synthesis (TTS) Narration Filtering Pipeline
 **Decision:** Implement regex-based text normalization inside the frontend `speakAnswer` speech synthesis utility.
 **Why:**
 - **Meaningful Speech Output:** Reading raw Markdown tables or document excerpts aloud produces distracting audio artifacts (e.g. speaking "vertical bar", "dash dash dash", or reading page numbers like "On Page 12, p. 14").
@@ -29,7 +47,7 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 4. PDF Reader Frame & Thumbnail Persistence Architecture
+## 6. PDF Reader Frame & Thumbnail Persistence Architecture
 **Decision:** Custom PDF viewer wrapper with 8 frame themes, frame-anchored navigation controls, space-preserved text selection layer, and single-column enlarged thumbnail sidebar (`w-80`).
 **Why:**
 - **Custom Aesthetic Themes:** Provides 8 distinct visual themes (Default Clean, Glassmorphism, Classic Wood, Cyberpunk Neon, Vintage Parchment, Midnight Dark, Minimal White, Golden Luxury) with theme selection persisted in `localStorage`.
@@ -39,7 +57,7 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 5. Machine Learning Recommendation Strategy
+## 7. Machine Learning Recommendation Strategy
 **Decision:** Three-Tier Recommendation Engine (ML Model, Content-Based, Preference-Based).
 **Why:**
 - **ML Model (TF-IDF & Cosine Similarity):** Uses `scikit-learn` to calculate TF-IDF and cosine similarity across the book corpus for robust relational mapping.
@@ -48,7 +66,16 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 6. Voice Assistant Microservice & Security Architecture
+## 8. Profile Integrity & Password Security Controls
+**Decision:** Implement strict profile field constraints and active session revocation upon password reset.
+**Why:**
+- **Contact Uniqueness:** Enforces database/frontend validation preventing identical primary and secondary mobile numbers.
+- **Avatar Persistence:** Avatar upload handlers preserve profile image URLs across user details updates.
+- **Session Revocation:** Resetting user passwords automatically revokes active JWT sessions, terminating unauthorized access across devices until re-authentication occurs.
+
+---
+
+## 9. Voice Assistant Microservice & Security Architecture
 **Decision:** Separate `lumina-voice` microservice running FastAPI + WebSockets (`:8001`), integrated with Kokoro-82M TTS (ONNX Runtime CPU), Whisper STT (`faster-whisper`), and client-side Web Speech API voice previewing, enforcing strict security audit controls.
 **Why:**
 - **Microservice Isolation:** Decouples heavy real-time audio processing (speech recognition & TTS synthesis) from core REST API worker threads.
@@ -58,26 +85,27 @@ This document explains the core architectural and design decisions made while bu
   - **Input Sanitization (`CRIT-002`)**: 500-char transcript bounds, control char stripping, and XML `<DOCUMENT_CHUNK>` RAG isolation boundaries.
   - **Privilege Escalation Control (`CRIT-003`)**: `user_email` extracted strictly from verified JWT claims with 30s TTL `action_id` confirmation binding.
   - **Audio Validation (`MED-002`)**: Container magic byte verification (WAV, WebM, OGG, FLAC) and 10MB chunk payload ceiling.
-  - **Log Scrubbing & Security Headers (`HIGH-004`, `LOW-002`)**: Automatic redaction of JWT tokens/Bearer headers from logs, plus security headers (`HSTS`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`).s.
+  - **Log Scrubbing & Security Headers (`HIGH-004`, `LOW-002`)**: Automatic redaction of JWT tokens/Bearer headers from logs, plus security headers (`HSTS`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`).
 
 ---
 
-## 7. Database Schema for Flexible User Preferences
+## 10. Database Schema for Flexible User Preferences
 **Decision:** Store user preferences in a `user_preferences` table utilizing a flexible `JSON` column.
 **Why:** Reading preferences (favorite genres, authors, keywords) evolve frequently. A JSON column provides schema flexibility without requiring multiple join tables or DB migrations when adding new preference nodes.
 
 ---
 
-## 8. Observability & Logging Architecture
+## 11. Observability & Logging Architecture
 **Decision:** Integrate Grafana and Loki natively within the Docker networking stack for full-stack structured logs with Edge Middleware SSO.
 **Why:** Standard container console logs are insufficient for production debugging. `python-logging-loki` in FastAPI and `winston-loki` in Next.js push logs natively to Loki. The Next.js frontend includes an `ActivityTracker` to log client-side navigation. Grafana is pre-provisioned and securely proxied via an Edge Middleware SSO layer in Next.js, allowing Admins instant access to traces without exposing Grafana directly to the public internet.
 
 ---
 
-## 9. Folder Structure & Clean Architecture
+## 12. Folder Structure & Clean Architecture
 LuminaLib encapsulates the Clean Architecture pattern directly in its directory layout:
 - **`luminalib/api/v1`**: Outermost HTTP routing layer.
 - **`luminalib/services`**: Core business logic, decoupled from HTTP and Infrastructure.
 - **`luminalib/repositories`**: Data-access layer bridging SQLAlchemy ORM models and services.
+- **`Lumina-voice/app`**: Dedicated voice microservice with Whisper STT and Kokoro TTS capabilities.
 - **`tests/`**: Pytest test suites mirroring backend modules (34 passing test cases).
 - **`Lumina-frontend/src/`**: Next.js App Router UI layer with 11 Jest test suites (51 passing tests).
