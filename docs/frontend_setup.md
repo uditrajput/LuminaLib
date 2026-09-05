@@ -4,11 +4,11 @@ This document outlines the complete setup procedure for the **LuminaLib** Next.j
 
 ---
 
-## Table of Contents
+### Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Local Development Setup](#local-development-setup)
 3. [Running via Docker 🐳](#running-via-docker-)
-4. [Testing Suite (11 Suites / 51 Tests)](#testing-suite)
+4. [Testing Suite (18 Suites / 75 Tests)](#testing-suite)
 5. [Directory Layout](#directory-layout)
 6. [Linting and Code Quality](#linting-and-code-quality)
 
@@ -97,16 +97,18 @@ Run the test suite:
 npm run test
 ```
 
-### 2. Test Metrics & Coverage (11 Suites / 51 Tests Passed)
+### 2. Test Metrics & Coverage (18 Suites / 75 Tests Passed)
 
-All 11 test suites pass cleanly across core frontend modules:
+All 18 test suites pass cleanly across core frontend modules:
 
-- **Admin Dynamic Config Page (`admin-config.test.tsx`)**: Validates rendering of settings, General Configurations section placement, modal triggers, search filtering, conditional `+ Add Config` button toggling, and unclipped LLM Provider dropdown menu.
-- **Admin User Management (`admin-users.test.tsx`)**: Asserts admin user table rendering, role switching, user blocking, and deletion workflows.
+- **Admin Dynamic Config Page (`admin-config.test.tsx`, `smtp-and-oauth.test.tsx`)**: Validates rendering of settings, General Configurations section placement, modal triggers, search filtering, conditional `+ Add Config` button toggling, SMTP configuration, OAuth providers, and unclipped LLM Provider dropdown menu.
+- **Admin User & Role Management (`admin-users.test.tsx`, `admin-roles.test.tsx`)**: Asserts admin user table rendering, role switching, permissions matrix checkboxes, user blocking, and deletion workflows.
 - **Profile & Preferences (`profile.test.tsx`, `voice-settings.test.tsx`)**: Validates user profile updates, avatar image persistence, primary/secondary mobile number validation, reading preference tags, Web Speech API audio sample testing, and smart disabled save button states.
-- **Authentication (`login.test.tsx`, `signup.test.tsx`)**: Validates form inputs, Zod schema validation errors, 12-character password constraints, password reset session revocation, and JWT session handling.
-- **Book Catalogue & Detail (`books.test.tsx`)**: Verifies book listing renders, PDF reader modal triggers, 8 frame themes, space-preserved text selection, saved highlights formatting, and review submission forms.
+- **Authentication & Route Guarding (`login.test.tsx`, `signup.test.tsx`, `route-auth-protection.test.tsx`)**: Validates form inputs, Zod schema validation errors, 12-character password constraints, password reset session revocation, JWT session handling, and unauthenticated redirects.
+- **Book Catalogue & Detail (`books.test.tsx`, `private-library.test.tsx`, `recommendations.test.tsx`)**: Verifies book listing renders, PDF reader modal triggers, 8 frame themes, space-preserved text selection, saved highlights formatting, private cohort entitlements, and recommendation carousels.
 - **AI Q&A Chat (`qa.test.tsx`)**: Validates Gemini-style question submission, RAG answer rendering, draft chat auto-filtering, interactive 3D glassmorphism deletion modal (`DeleteChatModal.tsx`), in-place prompt editing, in-place response regeneration (Redo), 1-click `✨ Answer` action buttons, and cross-browser Speech-to-Text via backend Whisper STT.
+- **Quiz System (`quiz-v4.test.tsx`, `quiz-create.test.tsx`, `quiz-attempt-lock.test.tsx`)**: Asserts AI quiz creation flow, timed assessment runner, anti-cheat visibility tracking, auto-submit countdowns, and attempt locks.
+- **UI Components & Voice Widget (`Button.test.tsx`, `VoiceWidget.test.tsx`, `page.test.tsx`)**: Validates atomic button states, voice widget toggle states, and landing page rendering.
 
 ---
 
@@ -116,9 +118,11 @@ All 11 test suites pass cleanly across core frontend modules:
 Lumina-frontend/
 ├── src/
 │   ├── app/                 # Next.js App Router pages
-│   │   ├── admin/config/    # Dynamic App Settings page (General Config top, LLM & Voice collapsed)
+│   │   ├── admin/config/    # Dynamic App Settings page (General Config top, LLM & Voice collapsed, SMTP/OAuth)
 │   │   ├── admin/users/     # User management table & role administration
-│   │   ├── books/           # Book catalogue & detail pages (/books/[id] with PDF reader & 8 frame themes)
+│   │   ├── admin/roles/     # RBAC roles & permissions matrix
+│   │   ├── books/           # Book catalogue & detail pages (/books/[id] with PDF reader, 8 frame themes & inline TTS)
+│   │   ├── quizzes/         # Quiz catalogue, creation wizard & timed assessment runner
 │   │   ├── qa/              # AI Q&A chat page with Gemini-style UI, in-place edit/redo, 3D delete modal & Whisper STT
 │   │   ├── profile/         # Profile management, avatar upload & reading preferences
 │   │   ├── recommendations/ # Personalized ML book suggestions
@@ -128,16 +132,17 @@ Lumina-frontend/
 │   ├── components/
 │   │   ├── ui/              # Buttons, inputs, status alerts, modals
 │   │   ├── books/           # Book cards, review forms, summary modals
-│   │   ├── pdf/             # Integrated PDF viewer with 8 frame themes & enlarged thumbnail sidebar (w-80)
+│   │   ├── pdf/             # Integrated PDF viewer with 8 frame themes, single floating Stop tooltip & enlarged sidebar
 │   │   ├── qa/              # DeleteChatModal.tsx (3D glassmorphism deletion modal) & QA formatting
+│   │   ├── quiz/            # Timed quiz runner, question palette, anti-cheat tracker
 │   │   ├── voice/           # Floating voice widget & slide-over panel
 │   │   └── layout/          # Sidenav, navbar, DashboardLayout
-│   ├── context/             # AuthContext (JWT state management)
+│   ├── context/             # AuthContext, LangContext
 │   ├── hooks/               # Custom hooks (useAuth, useBooks, useRecommendations, usePreferences, useAppConfigs)
-│   ├── services/            # Axios API clients (authService, bookService, qaService, voiceService, configService)
+│   ├── services/            # Axios API clients (authService, bookService, qaService, voiceService, configService, quizService)
 │   └── types/               # TypeScript DTOs mirroring backend models
 ├── public/                  # Static assets & logos
-├── __tests__/               # 11 Jest test suites
+├── __tests__/               # Jest test suites
 ├── next.config.ts           # Next.js standalone output configuration
 ├── tailwind.config.ts       # TailwindCSS utility theme definitions
 ├── tsconfig.json            # TypeScript compiler configuration

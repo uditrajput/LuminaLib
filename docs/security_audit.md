@@ -87,6 +87,12 @@ LIMIT 5;
 - **State Validation**: Uses HMAC-SHA256 signed `state` parameters containing timestamp and nonce to prevent CSRF attacks.
 - **Account Linking Safety**: Social email addresses must match allowed domain whitelist rules before account provisioning.
 
+### 3.5 Voice AI & Streaming Speech Security Controls
+- **WebSocket Subprotocol Authentication (`CRIT-001`)**: Real-time audio sockets (`/voice/ws/{book_id}`) require client token passing via RFC 6455 subprotocols (`Sec-WebSocket-Protocol: voice-v1, jwt-<token>`). Tokens are validated prior to connection acceptance (`websocket.accept()`).
+- **Input Bounds & Denial-of-Service Defense**: REST endpoints (`POST /voice/tts`, `POST /api/v1/voice/tts`) enforce strict payload bounds (up to 10,000 characters via Pydantic `TTSGenerateRequest`), rejecting oversized buffer exhaustion attempts with HTTP 422.
+- **Audio File Header Magic Byte Validation (`MED-002`)**: Audio chunk uploads verify standard container headers (RIFF/WAV, WebM, OGG, FLAC) before routing to Whisper STT, discarding rogue executable binaries.
+- **JWT Log Scrubbing (`HIGH-004`)**: Logging formatters across `lumina-voice` and `luminalib-backend` automatically redact Bearer tokens, Authorization headers, and raw session tokens.
+
 ---
 
 ## 4. Action Item Tracker & Sign-Off
@@ -100,6 +106,8 @@ LIMIT 5;
 | **A5** | SEC-005: Social OAuth Approval Interceptor | High | Auth Team | Phase 3 — Sprint 3 | 🟢 Planned |
 | **A6** | SEC-006: OAuth State CSRF Protection | High | Auth/Frontend | Phase 3 — Sprint 3 | 🟢 Planned |
 | **A7** | SEC-007: SMTP Secret Encryption at Rest | Medium | Security Team | Phase 3 — Sprint 2 | 🟢 Planned |
+| **A8** | CRIT-001: Voice WebSocket Subprotocol Auth | Critical | Voice/Sec Team | Phase 2 — Sprint 4 | ✅ Remediated |
+| **A9** | MED-002: Audio Container Magic Byte Validation | Medium | Voice Team | Phase 2 — Sprint 4 | ✅ Remediated |
 
 ---
 
@@ -111,3 +119,6 @@ LIMIT 5;
 - [ ] Test registration with unapproved domain (e.g., `@invalid-domain.com`) returns HTTP 400.
 - [ ] Verify user with `verified_pending_approval` status cannot log in until Admin approves.
 - [ ] Confirm OAuth 2.0 social sign-in credentials are encrypted in PostgreSQL.
+- [x] Confirm WebSocket audio streaming rejects connections without valid subprotocol JWT tokens.
+- [x] Confirm audio synthesis payloads exceeding 10,000 characters are rejected with HTTP 422.
+- [x] Confirm JWT Bearer tokens are scrubbed from Loki log aggregations.

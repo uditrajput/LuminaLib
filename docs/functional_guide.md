@@ -46,7 +46,7 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 - **File Upload**: Attach a PDF or Text file.
 - Upon successful upload, the system automatically starts an **Async AI Background Ingestion Task** to chunk, embed, and summarize the book.
 
-### PDF Reader & Custom Frame Themes
+### PDF Reader, Frame Themes & Speech Synthesis
 - Click any book to open its detail page (`/books/[id]`) with the integrated PDF reader.
 - **8 Book Frame Themes**: Choose your preferred reading atmosphere from the frame selector:
   1. *Default Clean* (Sleek slate border)
@@ -63,9 +63,15 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
   - Displays single-column enlarged page thumbnails.
   - Page number labels (`Page X`) and `Active` status badges are cleanly displayed *below* each thumbnail card.
   - Built-in text search bar allows searching for specific text directly within the sidebar panel.
-- **Text Selection & Saved Highlights Drawer**:
+- **Text Selection & Single Floating Speech Synthesis Tooltip**:
   - Selecting text on any page preserves exact word boundaries and spaces (`item.str + (item.hasEOL ? "\n" : " ")`).
-  - Text highlights format cleanly in the **Saved Highlights** drawer with text wrapping (`break-words`) and page jump links.
+  - Displays a single unified floating glassmorphism tooltip: `[ 🔊 Speak ] | HIGHLIGHT: [●][●][●][●]`.
+  - **Inline Stop Toggling**: Clicking **Speak** immediately turns the button into `[ 🔇 Stop ]` and keeps the dialog pinned during speech playback.
+  - **Reliable Stop Controls**: Clicking **Stop** or pressing **Escape** halts synthesis instantly and toggles back to `Speak`.
+  - **Click-Outside Menu Closing**: Clicking anywhere outside the tooltip automatically stops active speech playback and closes the selection menu.
+  - **OCR Text Sanitization**: Soft hyphens, line breaks within hyphenated words, and extraneous whitespace are automatically cleaned before synthesis for natural voice flow.
+- **Saved Highlights Drawer**:
+  - Highlights format cleanly in the **Saved Highlights** drawer with color tag chips, copy-to-clipboard, text wrapping (`break-words`), and page jump links.
 
 ### Borrowing and Returning
 - Click **"Borrow Book"** on an available book detail page.
@@ -168,8 +174,13 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
 ### User Management (`/admin/users`)
 - View registered users, assign roles (Admin/User), block accounts, or delete user profiles.
 
-### Observability & Telemetry (Grafana & Loki)
-- Admins can click **Grafana** in the navigation bar to access live backend/frontend Loki logs via Edge Middleware SSO proxying.
+### Observability & Telemetry (Grafana, Loki & PostgreSQL)
+- Admins can click **Grafana** in the navigation bar to access live telemetry via Edge Middleware SSO proxying.
+- **4 Pre-Provisioned Dashboards**:
+  1. **Executive & Library Operations (`luminalib_overview_1`)**: Real-time KPI summary tracking total books, active borrows, return rates, reader completion rates, and user role distribution.
+  2. **AI, Voice & Study Telemetry (`luminalib_ai_voice_1`)**: Spoken voice conversations, turn counts, Whisper STT/Edge-TTS latencies, flashcard study generations, and AI quiz pass metrics.
+  3. **System Health & SRE Telemetry (`luminalib_system_health_1`)**: 5xx/4xx HTTP error rates, container log throughput across all services, PostgreSQL table row counters, and security event alerts.
+  4. **Unified Multi-Service Logs (`luminalib_logs_1`)**: Live Loki log stream explorer with service filtering (`luminalib`, `lumina-voice`, `luminalib-frontend`) and log level filters (`ERROR`, `WARN`, `INFO`).
 
 ---
 
@@ -183,5 +194,10 @@ Welcome to the LuminaLib functional guide. This document provides a detailed wal
    - Edit prompt -> confirm prompt replaces in-place and downstream responses update.
    - Click **Redo** on AI response -> confirm response regenerates in-place without prompt duplication.
    - Test Voice-to-Text in Mozilla Firefox -> confirm audio wave animation and Whisper STT auto-submission.
-5. **PDF Reader**: Open `/books/[id]` and test 8 frame themes, thumbnail sidebar (`w-80`), and space-preserved text selection.
+5. **PDF Reader & Speech**:
+   - Select text in PDF -> confirm single floating tooltip displays `[ 🔊 Speak ]`.
+   - Click `Speak` -> verify button turns to `[ 🔇 Stop ]` and remains pinned during playback.
+   - Click `Stop` -> verify audio stops immediately and reverts to `Speak`.
+   - Click outside the menu -> verify the tooltip closes and audio stops automatically.
 6. **App Settings**: Access `/admin/config` to manage LLM providers and voice parameters.
+7. **Observability**: Access `/grafana/dashboards` to verify all 4 production dashboards.

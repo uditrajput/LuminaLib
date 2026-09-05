@@ -7,7 +7,7 @@
 *A full-stack, AI-powered library system — FastAPI backend · Next.js frontend · PostgreSQL · Redis · Docker · Voice AI*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://python.org/)
@@ -23,7 +23,7 @@
 
 ## 📖 Overview
 
-**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 15** frontend. Powered by machine learning and LLM-based AI, it offers **AI-generated quizzes (MCQ+Descriptive) with timed runner & auto-grading**, **PWA offline**, **hybrid semantic search with citation jump**, **gamification (streaks/XP/badges)**, **AI Study Companion (flashcards/mind-maps)**, smart book recommendations, interactive Gemini-style Q&A, auto-generated book summaries, hands-free voice AI, borrow/return tracking, customizable PDF reader frame themes, profile management with contact validation, and community reviews — all delivered through a beautifully designed, responsive UI.
+**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 16** frontend. Powered by machine learning and LLM-based AI, it offers **AI-generated quizzes (MCQ+Descriptive) with timed runner & auto-grading**, **PWA offline support**, **hybrid semantic search with citation jump**, **gamification (streaks/XP/badges)**, **AI Study Companion (flashcards/mind-maps)**, smart book recommendations, interactive Gemini-style Q&A, auto-generated book summaries, hands-free voice AI, borrow/return tracking, customizable PDF reader frame themes, profile management with contact validation, and community reviews — all delivered through a beautifully designed, responsive UI.
 
 ---
 
@@ -34,10 +34,10 @@
 | 🎙️ **Voice AI & Cross-Browser STT** | Real-time spoken Q&A, voice borrow/return, reviews, Web Speech API live streaming for Chrome/Edge, **Mozilla Firefox `MediaRecorder` + Whisper STT** (`Lumina-voice`), **Multi-Engine Neural TTS** (Microsoft Edge-TTS primary ~1.3s, Kokoro-82M offline fallback, gTTS Indic fallback), **in-memory LRU audio caching (<6ms)**, single-header WAV concatenation, 30s action confirmations, and Web Speech previewing |
 | 🤖 **Gemini-Style AI Q&A & Topic Practice** | Interactive RAG Q&A — persistent session history, **draft chat auto-filtering** (empty new chats omitted from history), **interactive 3D glassmorphism deletion modal**, **Gemini-style prompt editor & in-place updates**, **in-place response regeneration (Redo)** without prompt duplication, and 1-click `✨ Answer` action buttons for high-yield topic practice |
 | 🗣️ **Clean Speech Synthesis** | Studio-quality neural voice narration with automatic text filtering that strips page numbers (e.g. *"On Page 12"*), bracketed citations (`[1]`), table pipes (`|`), and formatting artifacts for clean, natural speech in English, Hindi, and Sanskrit |
-| 📖 **PDF Reader & Frame Themes** | Integrated PDF reader featuring 8 customizable book frame themes, single-column enlarged thumbnails with page numbers below, text search panel, space-preserved text selection, and frame-anchored glassmorphism navigation buttons |
+| 📖 **PDF Reader & Speech Synthesis** | Integrated PDF reader featuring 8 customizable book frame themes, single-column enlarged thumbnails with page numbers below, text search panel, space-preserved text selection, **unified floating selection tooltip with inline Speak / Stop toggling**, **click-outside menu close and auto-audio-stop**, and OCR text sanitization (unhyphenation & whitespace normalization) |
 | 👤 **Profile & Contact Integrity** | Custom avatar picture upload with persistence, **strict mobile validation** (Primary and Secondary mobile numbers must be different), and **password reset session revocation** (invalidates active sessions for clean re-login) |
 | 📊 **Clean User Dashboard** | Optimized dashboard layout with non-functioning search bar and notification bell icon removed for clean, focused user library tracking |
-| 📚 **Book Catalogue** | Full CRUD with multi-format file upload (PDF/Text), paginated listing, genre tagging, and background chunking/ingestion |
+| 📚 **Book Catalogue & Private Cohorts** | Full CRUD with multi-format file upload (PDF/Text), paginated listing, genre tagging, background chunking/ingestion, and private library group entitlements |
 | ⚙️ **Dynamic App Settings** | Reorganized Config page (`/admin/config`): General Configurations placed at the top (default open with `+ Add Config` button hiding when collapsed), collapsible LLM Provider with unclipped dropdown & Voice Settings panels, and smart save button state management |
 | 🛡️ **Security Audit Remediated** | Full remediation of security audit findings (`CRIT-001` to `LOW-004`): subprotocol JWT WebSocket auth, 500-char transcript sanitization, JWT log scrubbing, audio header magic byte validation, and security headers |
 | 🔌 **LLM Provider Options** | Dynamically switch between Docker Model Runner, OpenRouter, Ollama, OpenAI API, and Mock without restarting servers |
@@ -45,7 +45,7 @@
 | 📝 **Quiz & Assessment (v4.0)** | **MCQ (single/multi) + Descriptive**, **AI generation from book/topic** via LLM Factory, **group assignment** (`quiz_group_entitlements`), **Instruction → Start → server-timed Runner (palette/flag/autosave `10s`/`sendBeacon`/reaper) → auto/manual submit → MCQ auto-grade + descriptive AI-assisted grading**, RBAC `quiz_manage/attempt/review` |
 | 🔍 **Hybrid Search + Citations** | BM25 LIKE + embedding fallback, page snippet + **jump-to-page** in `PDFReaderModal` `text-search` tab, `GET /search` |
 | 🎮 **Gamification** | Streak days, XP/Level, badges (`5 Books`, `Hour Reader`), `ReadingJourney` `GET /progress/stats` |
-| 🧠 **AI Study Companion** | Flashcards/Anki TSV, MCQs, summaries, **mermaid mindmaps** from highlights `POST /study/generate`, Dashboard `StudyCompanion` + Highlights drawer button |
+| 🧠 **AI Study Companion** | Flashcards/Anki TSV, MCQs, summaries, **mermaid mindmaps** from highlights `POST /study/generate`, Dashboard `StudyCompanion` |
 | 🎧 **Audiobook Narration** | Native Indic (Hindi/Sanskrit) and English audio narration via Multi-Engine Neural TTS (`GET /books/{id}/audio/stream`) |
 | 💬 **Social Reading** | Per-book threads `GET/POST /books/{id}/discussions` (reviews reuse) + follow stub |
 | 📊 **Notifications** | In-app bell `NotificationBell` `GET /notifications` 30s poll + `POST /notifications/read-all`, quiz assign creates `quiz_assigned` notification |
@@ -55,7 +55,7 @@
 | 📖 **Borrow / Return** | Track borrow lifecycle per user with availability conflict detection |
 | ⭐ **Reviews & Ratings** | Post-borrow user reviews with rolling AI review consensus summary |
 | 🔐 **Secure Auth** | JWT signup/login, 12-character strict password enforcement, profile updates, `GET /users/me/completeness` 12-field weighted |
-| 📊 **Observability & SSO** | Full-stack Loki log aggregation & secure Grafana dashboards proxied via Next.js Edge Middleware SSO |
+| 📊 **Observability & SSO** | Full-stack Loki log aggregation & 4 pre-provisioned Grafana dashboards (Overview, System Health, AI/Voice, Logs) with PostgreSQL and Loki datasources proxied via Next.js Edge Middleware SSO |
 | 🐳 **Docker Deployment** | One-command full-stack orchestration (`docker compose up --build -d`) with health checks & named bridge network |
 | 📈 **Reading Telemetry** | `reading_sessions` + `POST /progress` heartbeat `15s`, `GET /progress/stats`, highlights `POST /progress/highlights` sync to RAG |
 
@@ -67,10 +67,10 @@
 LuminaLib/                          ← Monorepo root
 ├── Lumina-backend/                 ← FastAPI · Python 3.11 · SQLAlchemy 2 · asyncpg
 │   ├── luminalib/
-│   │   ├── api/v1/endpoints/       ← auth, books, qa, reviews, ingestion, recommendations, users, voice, app_configs
-│   │   ├── services/               ← business logic, rag_service, recommendation_engine, llm_factory
+│   │   ├── api/v1/endpoints/       ← auth, books, qa, reviews, ingestion, recommendations, users, voice, app_configs, quizzes, groups, rbac
+│   │   ├── services/               ← business logic, rag_service, recommendation_engine, llm_factory, quiz_service, group_service
 │   │   ├── repositories/           ← data-access layer & ORM mappings
-│   ├── tests/                      ← 34 pytest unit & integration tests (auth, books, qa, users, reviews, voice, config)
+│   ├── tests/                      ← 52 pytest unit & integration tests across 20 test files
 │   ├── Dockerfile                  ← python:3.11-slim single-stage image
 │   ├── pyproject.toml
 │   └── .env.example
@@ -81,31 +81,29 @@ LuminaLib/                          ← Monorepo root
 │   ├── Dockerfile
 │   └── requirements.txt
 │
-├── Lumina-frontend/                ← Next.js 15 · React 19 · TypeScript · TailwindCSS 4
+├── Lumina-frontend/                ← Next.js 16 · React 19 · TypeScript 5 · TailwindCSS 4
 │   ├── src/
-│   │   ├── app/                    ← App Router pages (/, /books, /books/[id], /qa, /profile, /recommendations, /admin/config, /admin/users, /login, /signup)
-│   │   ├── components/             ← ui/ · books/ · layout/ · pdf/ · qa/ (DeleteChatModal.tsx) · voice/
-│   │   ├── services/               ← apiClient, authService, bookService, reviewService, qaService, voiceService, configService
+│   │   ├── app/                    ← App Router pages (/, /books, /books/[id], /qa, /profile, /recommendations, /admin/config, /admin/users, /quizzes, /login, /signup)
+│   │   ├── components/             ← ui/ · books/ · layout/ · pdf/ · qa/ (DeleteChatModal.tsx) · voice/ · quiz/
+│   │   ├── services/               ← apiClient, authService, bookService, reviewService, qaService, voiceService, configService, quizService
 │   │   ├── hooks/                  ← useAuth, useBooks, useRecommendations, usePreferences, useAppConfigs
 │   │   ├── types/                  ← TypeScript DTOs mirroring backend schemas
-│   │   └── context/                ← AuthContext (JWT token management)
-│   ├── __tests__/                  ← 11 Jest test suites / 51 tests (admin-config, admin-users, profile, books, auth, qa)
+│   │   └── context/                ← AuthContext, LangContext
+│   ├── __tests__/                  ← 18 Jest test suites / 75 tests
 │   ├── Dockerfile                  ← node:20-alpine multi-stage standalone build
 │   └── jest.config.js
 │
 ├── docs/                           ← Centralized Documentation
-│   ├── architecture.md             ← Core architectural design decisions
+│   ├── architecture.md             ← Core architectural design decisions & TTS pipeline
 │   ├── backend_setup.md            ← Backend installation, testing & API details
 │   ├── frontend_setup.md           ← Frontend setup, Next.js standalone build & Jest tests
-│   ├── functional_guide.md         ← Walkthroughs on platform features & voice workflows
-│   └── contributing.md             ← PR protocols & repository rules
-│
-├── new_doc/                        ← Security & Compliance Reports
+│   ├── functional_guide.md         ← Walkthroughs on platform features, PDF reader & voice workflows
+│   ├── contributing.md             ← PR protocols & repository rules
 │   └── security_audit.md           ← Complete security audit report & resolution sign-off tracker
 │
 ├── grafana/                        ← Grafana Provisioning (Dashboards & Datasources)
 │   ├── provisioning/
-│   │   ├── dashboards/             ← Pre-configured JSON dashboards (Executive, AI/Voice, System Health, Logs)
+│   │   ├── dashboards/             ← 4 Pre-configured JSON dashboards (Overview, AI/Voice, System Health, Logs)
 │   │   └── datasources/            ← Dual datasources (PostgreSQL & Loki log aggregation)
 │   │
 ├── docker-compose.yml              ← Orchestrates all 7 microservices on lumina-net
@@ -131,7 +129,7 @@ LuminaLib/                          ← Monorepo root
 | ML | scikit-learn (collaborative filtering & cosine similarity) |
 | PDF Parsing | pypdf |
 | Storage | Local filesystem / S3-compatible (boto3) |
-| Testing | pytest 9.0 + pytest-asyncio (34 passing test cases) |
+| Testing | pytest 9.0 + pytest-asyncio (52 passing test cases across 20 files) |
 
 ### Voice AI (`Lumina-voice`)
 
@@ -147,15 +145,15 @@ LuminaLib/                          ← Monorepo root
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router · SSR · RSC · Standalone Output) |
+| Framework | Next.js 16 (App Router · SSR · RSC · Standalone Output) |
 | Language | TypeScript 5 |
 | UI | TailwindCSS 4 |
 | State / Fetching | TanStack React Query 5 |
 | Forms | React Hook Form + Zod |
 | HTTP Client | Axios (wrapped in service layer) |
 | Icons | Lucide React |
-| PDF Viewer | `@react-pdf-viewer/core` + custom frame renderer & space-preserved text selection |
-| Testing | Jest + React Testing Library (11 suites / 51 tests) |
+| PDF Viewer | `@react-pdf-viewer/core` + custom frame renderer, space-preserved text selection & inline neural TTS |
+| Testing | Jest + React Testing Library (18 suites / 75 tests) |
 
 ---
 
@@ -184,7 +182,7 @@ LuminaLib/                          ← Monorepo root
 | `postgres` | `luminalib-postgres` | `:5432` | PostgreSQL 16 database |
 | `redis` | `luminalib-redis` | `:6379` | Redis 7 caching service |
 | `loki` | `luminalib-loki` | `:3100` | Log aggregation engine |
-| `grafana` | `luminalib-grafana` | `:3000/grafana` | Observability dashboards (SSO proxied) |
+| `grafana` | `luminalib-grafana` | `:3001` or `:3000/grafana` | Observability dashboards (SSO proxied, 4 provisioned dashboards) |
 
 ---
 
@@ -258,7 +256,7 @@ docker-compose down -v
 | **Voice WS Endpoint** | `ws://localhost:8001/voice/ws/{book_id}` | Real-time bi-directional audio stream |
 | **Swagger Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive API explorer |
 | **ReDoc Reference** | [http://localhost:8000/redoc](http://localhost:8000/redoc) | Clean API documentation |
-| **Grafana Dashboards** | [http://localhost:3000/grafana/dashboards](http://localhost:3000/grafana/dashboards) | Full-stack Loki logs via SSO proxy |
+| **Grafana Dashboards** | [http://localhost:3000/grafana/dashboards](http://localhost:3000/grafana/dashboards) | 4 Dashboards (Overview, SRE Health, Voice/Study, Logs) via SSO proxy |
 | **PostgreSQL** | `localhost:5432` · DB `luminalib` | `postgres/postgres` |
 | **Redis Cache** | `localhost:6379` | In-memory cache |
 
@@ -291,13 +289,14 @@ Comprehensive guides are available in the [docs/](./docs/) directory:
 - [Frontend Setup & Testing](./docs/frontend_setup.md)
 - [Architecture Overview](./docs/architecture.md)
 - [Contributing Guidelines](./docs/contributing.md)
+- [Security Audit & Compliance](./docs/security_audit.md)
 
 ### 🏃 Running Automated Tests
 
 **Backend Test Cases (pytest):**
 ```bash
 cd Lumina-backend
-pytest           # Run all 34 backend unit & integration tests
+pytest           # Run all 52 backend unit & integration tests across 20 test files
 pytest --cov     # Run with code coverage report
 ```
 
@@ -310,7 +309,7 @@ pytest tests/    # Run all 7 voice microservice unit tests (auth, intent, TTS, c
 **Frontend Test Cases (Jest):**
 ```bash
 cd Lumina-frontend
-npm run test     # Run all 11 Jest test suites (51 tests passed)
+npm run test     # Run all 18 Jest test suites (75 tests passed)
 ```
 
 ---
@@ -343,7 +342,7 @@ All REST API endpoints are prefixed with `/api/v1` and protected via **Bearer JW
 | **users** | `GET` | `/users/me/preferences` | Get user reading preferences |
 | **users** | `PUT` | `/users/me/preferences` | Update reading preferences |
 | **voice** | `POST` | `/voice/transcribe` | Transcribe audio stream to text (Whisper STT for Firefox/Cross-Browser) |
-| **voice** | `GET/POST` | `/voice/tts` | Synthesize text to speech audio stream (Multi-Engine Neural TTS) |
+| **voice** | `GET/POST` | `/voice/tts` | Synthesize text to speech audio stream (Multi-Engine Neural TTS, supports up to 10,000 characters) |
 | **voice** | `GET` | `/voice/sample` | Generate voice model audio preview sample |
 | **voice** | `GET` | `/voice/conversations` | List user voice conversation history |
 | **voice** | `GET` | `/voice/conversations/{id}` | Get specific voice conversation transcript |
@@ -353,10 +352,11 @@ All REST API endpoints are prefixed with `/api/v1` and protected via **Bearer JW
 | **voice** | `WS` | `ws://localhost:8001/voice/ws/{book_id}` | Real-time bi-directional audio stream |
 | **audiobook** | `GET` | `/books/{id}/audio` | Get audiobook status, chapters, and stream URL |
 | **audiobook** | `GET` | `/books/{id}/audio/stream` | Stream synthesized audiobook audio narration |
+| **study** | `POST` | `/study/generate` | Generate flashcards, mind maps (Mermaid), and summaries from highlights |
 | **config** | `GET` | `/config` | Get application configuration settings |
 | **config** | `POST/PUT` | `/config` | Create or update dynamic application config key |
 | **telemetry** | `POST` | `/api/log` | Client activity tracking telemetry (Frontend) |
-| **telemetry** | `ANY` | `/grafana/*` | Proxied Grafana Loki dashboards (SSO Protected) |
+| **telemetry** | `ANY` | `/grafana/*` | Proxied Grafana dashboards & Loki logs (SSO Protected) |
 
 ---
 

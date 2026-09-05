@@ -103,15 +103,15 @@ uvicorn luminalib.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 Lumina-backend/
 ├── luminalib/          # Main application package
-│   ├── api/v1/         # FastAPI router endpoints (auth, books, qa, reviews, ingestion, recommendations, users, voice, app_configs)
+│   ├── api/v1/         # FastAPI router endpoints (auth, books, qa, reviews, ingestion, recommendations, users, voice, app_configs, quizzes, groups, rbac)
 │   ├── core/           # Security, config loading, logging, middleware
 │   ├── db/             # SQLAlchemy engine & session factory
 │   ├── infrastructure/ # LLM providers (Docker, OpenRouter, Ollama, OpenAI, Mock) & storage
 │   ├── models/         # SQLAlchemy ORM database models
 │   ├── repositories/   # Data-access repository layer
 │   ├── schemas/        # Pydantic validation schemas
-│   └── services/       # Core business logic (RAG pipeline, recommendation engine, review summarizer)
-├── tests/              # 34 pytest unit & integration test files
+│   └── services/       # Core business logic (RAG pipeline, recommendation engine, quiz runner, review summarizer)
+├── tests/              # 52 pytest unit & integration test files across 20 test suites
 ├── pyproject.toml      # Package dependencies & build configuration
 └── Dockerfile          # Single-stage Python 3.11 image
 ```
@@ -127,7 +127,7 @@ LuminaLib backend tests are powered by `pytest` and `pytest-asyncio`, utilizing 
 ```bash
 cd Lumina-backend
 
-# Run all 34 test cases
+# Run all 52 test cases
 pytest
 
 # Run with verbose test descriptions
@@ -137,15 +137,17 @@ pytest -v
 pytest --cov=luminalib --cov-report=term-missing
 ```
 
-### 🧪 Core Test Coverage (34 Passing Tests)
+### 🧪 Core Test Coverage (52 Passing Tests across 20 Files)
 
-1. **Authentication (`test_auth.py`)**: Signup validation (email format, 12-char strict password requirements), JWT generation, password reset session revocation, profile fetching/updates (avatar persistence & unique primary/secondary mobile numbers).
-2. **Books Management (`test_books.py`)**: Book CRUD operations, paginated queries, file upload ingestion mocks, metadata updates, deletion.
-3. **Borrow Lifecycle (`test_reviews_and_borrows.py`)**: Borrow and return workflows, availability state toggles, conflict checks.
-4. **Review System (`test_reviews_and_borrows.py`)**: Enforcing borrow-before-review constraint, rating range checks, rolling review consensus calculation.
-5. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling, in-place prompt edit & redo regeneration.
-6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, Whisper STT proxy transcription (`POST /api/v1/voice/transcribe`), Multi-Engine TTS proxying (`GET/POST /api/v1/voice/tts`, `GET /api/v1/voice/sample`), log scrubbing, available neural voice listing, conversation transcript history management.
-7. **Dynamic App Configs (`test_config.py`, `test_docker_llm_provider.py`)**: Loading and updating `app_configs` table key-value pairs at runtime.
+1. **Authentication (`test_auth.py`, `test_oauth.py`)**: Signup validation (email format, 12-char strict password requirements), JWT generation, password reset session revocation, OAuth status checks, and profile fetching/updates (avatar persistence & unique primary/secondary mobile numbers).
+2. **Books Management (`test_books.py`, `test_documents.py`, `test_private_library.py`)**: Book CRUD operations, paginated queries, file upload ingestion mocks, metadata updates, deletion, document chunk queries, and private library group entitlements.
+3. **Borrow Lifecycle & Reviews (`test_reviews_and_borrows.py`)**: Borrow and return workflows, availability state toggles, conflict checks, enforcing borrow-before-review constraint, rating range checks, and rolling review consensus calculation.
+4. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling, in-place prompt edit & redo regeneration.
+5. **Quiz Engine & Anti-Cheat (`test_quiz_v4.py`)**: Server-side timed runner, MCQ auto-grading, descriptive AI-assisted grading, attempt lockouts, and anti-cheat event tracking (`visibility_hidden`).
+6. **Role-Based Access Control & User Groups (`test_rbac.py`, `test_user_groups.py`)**: RBAC permissions matrix checking, immutable Admin role boundaries, user cohort assignments, and group membership verification.
+7. **Domain Whitelist & SMTP Security (`test_domain_whitelist_and_smtp.py`)**: Allowed domain verification, account verification state progression, and SMTP configuration encryption.
+8. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, Whisper STT proxy transcription (`POST /api/v1/voice/transcribe`), Multi-Engine TTS proxying (`GET/POST /api/v1/voice/tts` supporting up to 10,000 characters, `GET /api/v1/voice/sample`), log scrubbing, available neural voice listing, conversation transcript history management.
+9. **Dynamic App Configs (`test_config.py`, `test_app_configs.py`, `test_docker_llm_provider.py`)**: Loading and updating `app_configs` table key-value pairs at runtime without server restarts.
 
 ### 🎙️ Running Voice Microservice Tests (7 Passing Tests)
 

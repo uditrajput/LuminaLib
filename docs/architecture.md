@@ -47,11 +47,14 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 6. PDF Reader Frame & Thumbnail Persistence Architecture
-**Decision:** Custom PDF viewer wrapper with 8 frame themes, frame-anchored navigation controls, space-preserved text selection layer, and single-column enlarged thumbnail sidebar (`w-80`).
+## 6. PDF Reader Frame, Thumbnail Persistence & Speech Synthesis Architecture
+**Decision:** Custom PDF viewer wrapper with 8 frame themes, frame-anchored navigation controls, space-preserved text selection layer, single-column enlarged thumbnail sidebar (`w-80`), **unified floating selection tooltip with inline Speak / Stop toggling**, and OCR text sanitization.
 **Why:**
 - **Custom Aesthetic Themes:** Provides 8 distinct visual themes (Default Clean, Glassmorphism, Classic Wood, Cyberpunk Neon, Vintage Parchment, Midnight Dark, Minimal White, Golden Luxury) with theme selection persisted in `localStorage`.
 - **Space-Preserved Text Selection:** Transparent `<span>` elements on the PDF selection layer append word boundary spacing (`item.str + (item.hasEOL ? "\n" : " ")`), ensuring copied text and saved highlights preserve clean word spacing.
+- **Unified Floating Selection Tooltip & Speech Synthesis:** When text is highlighted on a PDF page, a single floating glassmorphism tooltip renders (`[ 🔊 Speak ] | HIGHLIGHT: [●][●][●][●]`). On clicking Speak, the button transitions into a pinned `[ 🔇 Stop ]` controller without disappearing.
+- **Event Propagation Isolation & Click-Outside Auto-Stop:** Speech control actions execute `e.stopPropagation()` and `e.preventDefault()`, shielding the speech state machine from native DOM selection clears. Clicking anywhere outside the tooltip automatically stops active audio playback and closes the menu cleanly.
+- **OCR Text Sanitization:** Before sending text to speech synthesis, raw PDF extracts undergo hyphen rejoining (unhyphenation of line-break words like `syn-\nthesis` → `synthesis`) and whitespace collapsing, preventing awkward audio pauses.
 - **Zoom-Responsive Navigation:** Left and Right glassmorphism navigation buttons are anchored outside the active page frame, dynamically adjusting position when the user zooms in or out.
 - **Sidebar Thumbnail Organization:** The `w-80` collapsible sidebar renders single-column enlarged thumbnails with page number badges (`Page X`) and `Active` indicators positioned cleanly *below* thumbnail cards, accompanied by an in-panel text search filter.
 
@@ -76,7 +79,7 @@ This document explains the core architectural and design decisions made while bu
 ---
 
 ## 9. Voice Assistant Microservice & Multi-Engine TTS Architecture
-**Decision:** Separate `lumina-voice` microservice running FastAPI + WebSockets (`:8001`), integrated with a **Multi-Engine Hybrid TTS Architecture** (Microsoft Edge Neural TTS primary, Kokoro-82M offline neural fallback, gTTS cloud fallback), Whisper STT (`faster-whisper`), in-memory LRU audio caching, and client-side Web Speech API voice previewing, enforcing strict security audit controls.
+**Decision:** Separate `lumina-voice` microservice running FastAPI + WebSockets (`:8001`), integrated with a **Multi-Engine Hybrid TTS Architecture** (Microsoft Edge Neural TTS primary, Kokoro-82M offline neural fallback, gTTS cloud fallback), Whisper STT (`faster-whisper`), in-memory LRU audio caching, 10,000-character payload support, and client-side Web Speech API voice previewing, enforcing strict security audit controls.
 **Why:**
 - **Microservice Isolation:** Decouples heavy real-time audio processing (speech recognition & TTS synthesis) from core REST API worker threads.
 - **Low-Latency Hybrid TTS Pipeline:**
@@ -84,6 +87,7 @@ This document explains the core architectural and design decisions made while bu
   - **Secondary Offline Engine (`Kokoro-82M`)**: Local CPU neural TTS running in a non-blocking threadpool executor (`loop.run_in_executor`). Concatenates raw PCM int16 samples into a single buffer before writing a single valid RIFF header, preventing audio clicks, static, and premature browser playback cutoffs.
   - **Indic & Devanagari Support**: Automatic Devanagari detection routing Hindi and Sanskrit queries to native natural voices (`hi-IN-SwaraNeural` / `gTTS`).
   - **In-Memory LRU Audio Cache**: 256-slot async cache keyed by `(text, voice, speed)` providing **<6ms instant response times** for repeated queries, book titles, and action confirmations.
+  - **Long-Form Text Support**: `TTSGenerateRequest` and `POST /voice/tts` endpoints support up to **10,000 characters** with automatic sentence chunking and streaming.
   - **Buzzer Elimination**: Replaced legacy mathematical sine-wave hum/buzzer generators with authentic neural speech and clean silent fallbacks.
 - **Container Healthcheck**: Exposes native `GET /voice/voices` on `:8001` ensuring Docker health checks report `healthy` status.
 - **Web Speech API Previewing:** Voice sample testing in `VoiceSettingsPanel` invokes `window.speechSynthesis` directly for zero-latency, natural human voice previewing.
@@ -134,5 +138,5 @@ LuminaLib encapsulates the Clean Architecture pattern directly in its directory 
 - **`luminalib/services`**: Core business logic, decoupled from HTTP and Infrastructure.
 - **`luminalib/repositories`**: Data-access layer bridging SQLAlchemy ORM models and services.
 - **`Lumina-voice/app`**: Dedicated voice microservice with Whisper STT, Multi-Engine Hybrid TTS (Edge-TTS, Kokoro-82M, gTTS), and LRU audio caching (7 passing unit test cases).
-- **`Lumina-backend/tests/`**: Pytest test suites mirroring backend modules (34 passing test cases).
-- **`Lumina-frontend/src/`**: Next.js App Router UI layer with 11 Jest test suites (51 passing tests).
+- **`Lumina-backend/tests/`**: Pytest test suites mirroring backend modules (52 passing test cases across 20 test files).
+- **`Lumina-frontend/src/`**: Next.js App Router UI layer with 18 Jest test suites (75 passing tests).
