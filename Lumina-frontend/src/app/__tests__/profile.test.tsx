@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import ProfilePage from "../profile/page";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences, useUpdateUserPreferences } from "@/hooks/usePreferences";
-import { useUpdateProfile, useChangePassword } from "@/hooks/useProfile";
+import { useUpdateProfile, useChangePassword, useUploadAvatar } from "@/hooks/useProfile";
 import "@testing-library/jest-dom";
 
 // Mock all the hooks
@@ -40,6 +40,7 @@ describe("Profile Page", () => {
         (useUpdateUserPreferences as jest.Mock).mockReturnValue({ mutate: mockMutate, reset: jest.fn() });
         (useUpdateProfile as jest.Mock).mockReturnValue({ mutate: mockMutate, reset: jest.fn() });
         (useChangePassword as jest.Mock).mockReturnValue({ mutate: mockMutate, reset: jest.fn() });
+        (useUploadAvatar as jest.Mock).mockReturnValue({ mutate: mockMutate, isPending: false });
     });
 
     it("renders the profile management header", () => {
@@ -49,16 +50,16 @@ describe("Profile Page", () => {
 
     it("displays user information in the sidebar", () => {
         render(<ProfilePage />);
-        expect(screen.getByText("Test User")).toBeInTheDocument();
-        expect(screen.getByText("test@example.com")).toBeInTheDocument();
-        expect(screen.getByText(/Test bio/i)).toBeInTheDocument();
+        expect(screen.getAllByText("Test User").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("test@example.com").length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Test bio/i).length).toBeGreaterThan(0);
     });
 
     it("switches between tabs", () => {
         render(<ProfilePage />);
 
         // Default tab is Account Info
-        expect(screen.getByText("Account Information")).toBeInTheDocument();
+        expect(screen.getByText("Account Details")).toBeInTheDocument();
 
         // Switch to Security
         const securityBtn = screen.getByRole("button", { name: /Security/i });
@@ -74,11 +75,15 @@ describe("Profile Page", () => {
     it("updates account information", async () => {
         render(<ProfilePage />);
 
-        const nameInput = screen.getByPlaceholderText(/e.g. Jane Doe/i);
+        // Click Edit Details
+        const editBtn = screen.getByRole("button", { name: /Edit Details/i });
+        fireEvent.click(editBtn);
+
+        const nameInput = screen.getByDisplayValue("Test User");
         fireEvent.change(nameInput, { target: { value: "New Name" } });
 
-        const saveBtn = screen.getByRole("button", { name: /Save Changes/i });
-        fireEvent.click(saveBtn);
+        const saveBtn = screen.getByRole("button", { name: /Save Details/i });
+        fireEvent.submit(saveBtn.closest("form")!);
 
         await waitFor(() => {
             expect(mockMutate).toHaveBeenCalled();

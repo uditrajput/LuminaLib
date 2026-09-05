@@ -12,6 +12,17 @@ export const addReview = async (bookId: number, data: ReviewCreate): Promise<Rev
     return res.data;
 };
 
+export const updateReview = async (bookId: number, data: ReviewCreate): Promise<Review> => {
+    const res = await apiClient.put<Review>(`/books/${bookId}/reviews`, data);
+    return res.data;
+};
+
+export const deleteReview = async (bookId: number, reviewId?: number) => {
+    const url = reviewId ? `/books/${bookId}/reviews/${reviewId}` : `/books/${bookId}/reviews`;
+    const res = await apiClient.delete(url);
+    return res.data;
+};
+
 // ── Borrow / Return ───────────────────────────────────────────────────────────
 export const borrowBook = async (bookId: number) => {
     const res = await apiClient.post(`/books/${bookId}/borrow`);

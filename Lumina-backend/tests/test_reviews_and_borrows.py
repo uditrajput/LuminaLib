@@ -77,3 +77,39 @@ async def test_books_reviews_and_borrows(client: AsyncClient):
     # Delete file only
     del_file = await client.delete(f"/api/v1/books/{b_id}/file")
     assert del_file.status_code == 200
+
+    # Test Discussion isolation from Reviews
+    disc_resp = await client.post(
+        f"/api/v1/books/{b_id}/discussions",
+        json={"content": "What did you think of chapter 3?", "rating": 5},
+    )
+    assert disc_resp.status_code == 200
+    disc_data = disc_resp.json()["data"]
+    assert disc_data["content"] == "What did you think of chapter 3?"
+    assert "user_name" in disc_data
+
+    # Verify reviews count did NOT increase from discussion post
+    list_rev_after_disc = await client.get(f"/api/v1/books/{b_id}/reviews")
+    assert list_rev_after_disc.status_code == 200
+    assert len(list_rev_after_disc.json()["data"]) == 1
+
+    # Verify discussions list
+    list_disc = await client.get(f"/api/v1/books/{b_id}/discussions")
+    assert list_disc.status_code == 200
+    assert len(list_disc.json()["data"]) == 1
+    assert list_disc.json()["data"][0]["content"] == "What did you think of chapter 3?"
+
+    # Test updating review (single review per user per book guarantee)
+    update_rev_resp = await client.put(
+        f"/api/v1/books/{b_id}/reviews",
+        json={"review_text": "Updated: Even better on second read!", "rating": 4},
+    )
+    assert update_rev_resp.status_code == 200
+    assert update_rev_resp.json()["data"]["review_text"] == "Updated: Even better on second read!"
+    assert update_rev_resp.json()["data"]["rating"] == 4
+
+    # Verify review count is still exactly 1
+    list_rev_final = await client.get(f"/api/v1/books/{b_id}/reviews")
+    assert len(list_rev_final.json()["data"]) == 1
+    assert list_rev_final.json()["data"][0]["review_text"] == "Updated: Even better on second read!"
+

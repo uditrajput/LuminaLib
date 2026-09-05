@@ -75,10 +75,17 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 9. Voice Assistant Microservice & Security Architecture
-**Decision:** Separate `lumina-voice` microservice running FastAPI + WebSockets (`:8001`), integrated with Kokoro-82M TTS (ONNX Runtime CPU), Whisper STT (`faster-whisper`), and client-side Web Speech API voice previewing, enforcing strict security audit controls.
+## 9. Voice Assistant Microservice & Multi-Engine TTS Architecture
+**Decision:** Separate `lumina-voice` microservice running FastAPI + WebSockets (`:8001`), integrated with a **Multi-Engine Hybrid TTS Architecture** (Microsoft Edge Neural TTS primary, Kokoro-82M offline neural fallback, gTTS cloud fallback), Whisper STT (`faster-whisper`), in-memory LRU audio caching, and client-side Web Speech API voice previewing, enforcing strict security audit controls.
 **Why:**
 - **Microservice Isolation:** Decouples heavy real-time audio processing (speech recognition & TTS synthesis) from core REST API worker threads.
+- **Low-Latency Hybrid TTS Pipeline:**
+  - **Primary Engine (`edge-tts`)**: Delivers studio-grade Microsoft Neural voices (`en-US-JennyNeural`, `en-US-GuyNeural`, `en-GB-SoniaNeural`, `en-GB-RyanNeural`, `hi-IN-SwaraNeural`, `hi-IN-MadhurNeural`) with **~1.3s response times** and compact MP3 encoding (20KB vs 200KB uncompressed WAV).
+  - **Secondary Offline Engine (`Kokoro-82M`)**: Local CPU neural TTS running in a non-blocking threadpool executor (`loop.run_in_executor`). Concatenates raw PCM int16 samples into a single buffer before writing a single valid RIFF header, preventing audio clicks, static, and premature browser playback cutoffs.
+  - **Indic & Devanagari Support**: Automatic Devanagari detection routing Hindi and Sanskrit queries to native natural voices (`hi-IN-SwaraNeural` / `gTTS`).
+  - **In-Memory LRU Audio Cache**: 256-slot async cache keyed by `(text, voice, speed)` providing **<6ms instant response times** for repeated queries, book titles, and action confirmations.
+  - **Buzzer Elimination**: Replaced legacy mathematical sine-wave hum/buzzer generators with authentic neural speech and clean silent fallbacks.
+- **Container Healthcheck**: Exposes native `GET /voice/voices` on `:8001` ensuring Docker health checks report `healthy` status.
 - **Web Speech API Previewing:** Voice sample testing in `VoiceSettingsPanel` invokes `window.speechSynthesis` directly for zero-latency, natural human voice previewing.
 - **Security Audit Remediations (`security_audit.md`)**:
   - **Subprotocol Auth (`CRIT-001`)**: `Sec-WebSocket-Protocol`: `voice-v1, jwt-<token>` validates tokens before `websocket.accept()`.
@@ -95,17 +102,37 @@ This document explains the core architectural and design decisions made while bu
 
 ---
 
-## 11. Observability & Logging Architecture
-**Decision:** Integrate Grafana and Loki natively within the Docker networking stack for full-stack structured logs with Edge Middleware SSO.
-**Why:** Standard container console logs are insufficient for production debugging. `python-logging-loki` in FastAPI and `winston-loki` in Next.js push logs natively to Loki. The Next.js frontend includes an `ActivityTracker` to log client-side navigation. Grafana is pre-provisioned and securely proxied via an Edge Middleware SSO layer in Next.js, allowing Admins instant access to traces without exposing Grafana directly to the public internet.
+## 11. Observability & Telemetry Architecture (Dual-Engine: PostgreSQL + Loki)
+**Decision:** Integrate Grafana with dual datasources (`Loki` for structured application log aggregation and `PostgreSQL` for operational & business metrics), provisioned out-of-the-box with role-based Edge Middleware Admin SSO.
+**Why:** Standard container console logs are insufficient for comprehensive observability:
+- **Loki Integration:** `python-logging-loki` in `luminalib-backend` and `lumina-voice`, alongside client/server logging in `luminalib-frontend`, push structured telemetry directly to Loki (`application="luminalib"`, `application="lumina-voice"`, `application="luminalib-frontend"`).
+- **PostgreSQL Operational Telemetry:** Grafana connects natively to the PostgreSQL database (`postgres:5432/luminalib`) to render real-time business KPIs and platform health across catalog inventory, active borrows, reading sessions & completion velocity, user growth, quiz analytics, and voice turns.
+- **Pre-Provisioned Production Dashboards:**
+  1. *LuminaLib Executive & Library Operations* (`luminalib_overview_1`): Catalog inventory, borrow circulation, reader completion rates, and user role distribution.
+  2. *LuminaLib AI, Voice & Study Telemetry* (`luminalib_ai_voice_1`): Voice conversation & turn volume, study flashcard generation, quiz pass rates, and AI review consensus.
+  3. *LuminaLib System Health & SRE Telemetry* (`luminalib_system_health_1`): 5xx/4xx error rate tracking, container log throughput, security events, and database table row counters.
+  4. *LuminaLib Unified Multi-Service Logs* (`luminalib_logs_1`): Live log stream explorer with service and log-level filtering across all microservices.
+- **Admin SSO Proxy:** Secured through `/grafana-sso` and Next.js Edge Middleware, verifying administrator JWT claims before issuing Grafana session cookies with automatic reverse-proxying.
 
 ---
 
-## 12. Folder Structure & Clean Architecture
+## 12. Quiz & Assessment Engine (v4.0)
+**Decision:** Server-authoritative timer (`expires_at = NOW()+duration`), `quiz_group_entitlements` (reuse `UserGroup` pattern), LLM Factory for AI generation (`document_chunks` → prompt → JSON), auto-grade MCQ exact-match + AI-assisted descriptive (human confirm).
+**Why:** Group entitlement reuses `groups.py:82` proven path; server time prevents client drift; AI never auto-publishes — draft editable; `quiz_attempt_events` logs `visibility_hidden` for light anti-cheat.
+
+---
+
+## 13. Reading Telemetry + PWA + Study Companion (v4.0)
+**Decision:** `reading_sessions` heartbeat `15s` from `PDFReaderModal:316`, `highlights` sync `POST /progress/highlights`, `GET /progress/stats` for streak/XP/level, `manifest.json` + `sw.js` cache-first pdfs, `POST /study/generate` for flashcards/mindmap (mermaid), `GET /search` hybrid LIKE→vector, `LangContext` + reduced-motion.
+**Why:** Telemetry unlocks dashboard `ReadingAnalytics` + gamification; PWA gives offline for edu; study companion reuses highlight context.
+
+---
+
+## 14. Folder Structure & Clean Architecture
 LuminaLib encapsulates the Clean Architecture pattern directly in its directory layout:
 - **`luminalib/api/v1`**: Outermost HTTP routing layer.
 - **`luminalib/services`**: Core business logic, decoupled from HTTP and Infrastructure.
 - **`luminalib/repositories`**: Data-access layer bridging SQLAlchemy ORM models and services.
-- **`Lumina-voice/app`**: Dedicated voice microservice with Whisper STT and Kokoro TTS capabilities.
-- **`tests/`**: Pytest test suites mirroring backend modules (34 passing test cases).
+- **`Lumina-voice/app`**: Dedicated voice microservice with Whisper STT, Multi-Engine Hybrid TTS (Edge-TTS, Kokoro-82M, gTTS), and LRU audio caching (7 passing unit test cases).
+- **`Lumina-backend/tests/`**: Pytest test suites mirroring backend modules (34 passing test cases).
 - **`Lumina-frontend/src/`**: Next.js App Router UI layer with 11 Jest test suites (51 passing tests).

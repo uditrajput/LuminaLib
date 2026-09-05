@@ -23,6 +23,12 @@ from app.tts import synthesize_speech_bytes
 
 logger = logging.getLogger("lumina_voice.pipeline")
 
+
+async def _synth_audio(text: str, voice: str, speed: float) -> bytes:
+    """Helper to synthesize audio and return raw bytes."""
+    res = await synthesize_speech_bytes(text, voice=voice, speed=speed)
+    return res[0] if isinstance(res, (tuple, list)) else res
+
 LUMINA_API_URL = os.getenv("LUMINA_API_URL", "http://backend:8000/api/v1").rstrip("/")
 
 
@@ -68,7 +74,7 @@ async def process_user_turn(
         pending = get_pending_action(action_id, user_email)
         if not pending:
             text = "Sorry, that action request expired or was invalid."
-            audio = await synthesize_speech_bytes(text, voice=voice_pref, speed=speed_pref)
+            audio = await _synth_audio(text, voice=voice_pref, speed=speed_pref)
             return {
                 "transcript": "Confirmation",
                 "intent": "action_confirm",
@@ -86,7 +92,7 @@ async def process_user_turn(
             )
             clear_pending_action(action_id)
             resp_msg = res.get("message", "Action performed successfully.")
-            audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+            audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
             return {
                 "transcript": "Confirm action",
                 "intent": pending["action_type"],
@@ -98,7 +104,7 @@ async def process_user_turn(
         else:
             clear_pending_action(action_id)
             text = "Action cancelled."
-            audio = await synthesize_speech_bytes(text, voice=voice_pref, speed=speed_pref)
+            audio = await _synth_audio(text, voice=voice_pref, speed=speed_pref)
             return {
                 "transcript": "Cancel action",
                 "intent": "cancel",
@@ -113,7 +119,7 @@ async def process_user_turn(
     sanitized_text = sanitize_transcript(raw_text)
     if not sanitized_text:
         text = "I couldn't hear or understand that clearly. Please try speaking again."
-        audio = await synthesize_speech_bytes(text, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(text, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": "",
             "intent": "general",
@@ -130,7 +136,7 @@ async def process_user_turn(
     if intent_name in ("borrow", "return", "review"):
         if not user_jwt:
             text = "Please log in to your LuminaLib account to perform library actions."
-            audio = await synthesize_speech_bytes(text, voice=voice_pref, speed=speed_pref)
+            audio = await _synth_audio(text, voice=voice_pref, speed=speed_pref)
             return {
                 "transcript": sanitized_text,
                 "intent": intent_name,
@@ -142,7 +148,7 @@ async def process_user_turn(
         title = book_context.get("title", f"Book #{book_id}" if book_id else "this book")
         action_id = create_pending_action(intent_name, book_id, user_email, extra_data=intent_meta)
         confirm_msg = f"Are you sure you want to {intent_name} '{title}'? Click confirm or say 'confirm' to proceed."
-        audio = await synthesize_speech_bytes(confirm_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(confirm_msg, voice=voice_pref, speed=speed_pref)
 
         return {
             "transcript": sanitized_text,
@@ -167,7 +173,7 @@ async def process_user_turn(
         else:
             resp_msg = "LuminaLib is your intelligent digital library service featuring automated book summaries, semantic document Q&A, and personalized ML recommendations."
 
-        audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": sanitized_text,
             "intent": "summary",
@@ -192,7 +198,7 @@ async def process_user_turn(
         else:
             resp_msg = "I recommend checking out our top rated books catalog!"
 
-        audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": sanitized_text,
             "intent": "recommend",
@@ -205,7 +211,7 @@ async def process_user_turn(
     clean_lower = sanitized_text.lower().strip()
     if re.search(r"^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening))\b", clean_lower):
         resp_msg = "Hello! I am your LuminaLib AI assistant. How can I help you with your reading today?"
-        audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": sanitized_text,
             "intent": "general",
@@ -216,7 +222,7 @@ async def process_user_turn(
 
     if "can you help me" in clean_lower or "what can you do" in clean_lower:
         resp_msg = "Yes, absolutely! I can summarize books, answer questions about library titles, recommend books based on your reading preferences, or assist with borrowing and returning."
-        audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": sanitized_text,
             "intent": "general",
@@ -235,7 +241,7 @@ async def process_user_turn(
             qa_dict = raw_data.get("data", raw_data) if isinstance(raw_data, dict) else raw_data
             answer = qa_dict.get("answer") if isinstance(qa_dict, dict) else str(qa_dict)
             if answer and answer.strip():
-                audio = await synthesize_speech_bytes(answer, voice=voice_pref, speed=speed_pref)
+                audio = await _synth_audio(answer, voice=voice_pref, speed=speed_pref)
                 return {
                     "transcript": sanitized_text,
                     "intent": "qa",
@@ -248,7 +254,7 @@ async def process_user_turn(
         err_msg = res.get("message", "")
         if "must first borrow at least one book" in err_msg.lower():
             resp_msg = "To ask AI questions about specific books, please borrow at least one book from the library first! In the meantime, feel free to ask me for recommendations or summaries."
-            audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+            audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
             return {
                 "transcript": sanitized_text,
                 "intent": "qa",
@@ -264,7 +270,7 @@ async def process_user_turn(
         else:
             resp_msg = "I am your LuminaLib voice assistant. You can ask me questions about any book, ask for recommendations, or manage your borrows and reviews."
 
-        audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+        audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
         return {
             "transcript": sanitized_text,
             "intent": "general",
@@ -275,7 +281,7 @@ async def process_user_turn(
 
     title = book_context.get("title") if book_context else "the library catalog"
     resp_msg = f"I've received your query about {title}. How else can I help you today?"
-    audio = await synthesize_speech_bytes(resp_msg, voice=voice_pref, speed=speed_pref)
+    audio = await _synth_audio(resp_msg, voice=voice_pref, speed=speed_pref)
     return {
         "transcript": sanitized_text,
         "intent": intent_name,

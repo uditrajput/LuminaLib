@@ -264,6 +264,163 @@ async def update_role(
     return await user_repo.update(user)
 
 
+# ── Quiz History (user-specific, no cross-user leakage) ─────────────────────
+
+@router.get("/me/quiz-history", summary="Get completed quiz history for current user (user-specific, no false data)")
+async def get_quiz_history(
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Aggregated history strictly filtered by current_user.id — never returns other users' data. Empty list if no attempts exist (no mock/false entries)."""
+    from luminalib.models.quiz import Quiz, QuizAttempt
+    stmt = (
+        select(QuizAttempt, Quiz)
+        .join(Quiz, Quiz.id == QuizAttempt.quiz_id)
+        .where(QuizAttempt.user_id == user.id)
+        .order_by(QuizAttempt.created_at.desc())
+    )
+    res = await session.execute(stmt)
+    rows = res.all()
+    # If no rows, return empty list — never fabricate
+    history = []
+    for attempt, quiz in rows:
+        history.append({
+            "attempt_id": attempt.id,
+            "quiz_id": quiz.id,
+            "quiz_title": quiz.title,
+            "quiz_status": quiz.status,
+            "attempt_number": attempt.attempt_number,
+            "status": attempt.status,
+            "score": attempt.score,
+            "max_score": attempt.max_score,
+            "percentage": attempt.percentage,
+            "passed": attempt.passed,
+            "time_taken_seconds": attempt.time_taken_seconds,
+            "is_late": attempt.is_late,
+            "started_at": attempt.started_at,
+            "submitted_at": attempt.submitted_at,
+            "duration_minutes": quiz.duration_minutes,
+            "pass_percentage": quiz.pass_percentage,
+        })
+    return {"user_id": user.id, "total": len(history), "history": history}
+
+
+@router.get("/me/quiz-insights", summary="AI-based dashboard suggestions from user's own quiz history (user-specific)")
+async def get_quiz_insights(
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generates insights ONLY from the authenticated user's quiz attempts. If user has no history, returns empty insights with honest message — no generic/false suggestions. Uses LLM grounded in real scores/time."""
+    from luminalib.models.quiz import Quiz, QuizAttempt, QuizQuestion, QuizAttemptAnswer
+    from sqlalchemy.orm import selectinload
+    # 1. Fetch only current user's attempts — zero cross-user data
+    stmt = select(QuizAttempt).where(QuizAttempt.user_id == user.id).order_by(QuizAttempt.created_at.desc())
+    res = await session.execute(stmt)
+    attempts: list = list(res.scalars().all())
+    if not attempts:
+        return {
+            "user_id": user.id,
+            "has_data": False,
+            "message": "No quiz history yet — attempt a quiz to get personalized AI suggestions. This dashboard shows only your data, no generic estimates.",
+            "stats": None,
+            "suggestions": [],
+        }
+    # Compute real stats from actual rows
+    graded = [a for a in attempts if a.status in ("graded", "submitted", "pending_grading")]
+    total = len(attempts)
+    avg_pct = round(sum((a.percentage or 0) for a in graded) / len(graded), 1) if graded else 0
+    avg_time = round(sum((a.time_taken_seconds or 0) for a in graded) / len(graded)) if graded else 0
+    pass_rate = round(sum(1 for a in graded if a.passed) / len(graded) * 100, 1) if graded else 0
+    # Per-type accuracy: need to join answers
+    # For simplicity, compute weak areas via low percentage attempts
+    weakest = sorted(graded, key=lambda a: a.percentage or 0)[:2]
+    # Build grounded prompt strictly from user's own numbers
+    stats = {
+        "total_attempts": total,
+        "graded": len(graded),
+        "avg_percentage": avg_pct,
+        "avg_time_seconds": avg_time,
+        "pass_rate": pass_rate,
+        "recent": [{"quiz_id": a.quiz_id, "percentage": a.percentage, "time": a.time_taken_seconds, "passed": a.passed} for a in attempts[:5]],
+    }
+    # LLM call — grounded, no hallucination: only stats above
+    suggestions: list[str] = []
+    try:
+        from luminalib.infrastructure.llm.llm_factory import get_llm_provider
+        llm = await get_llm_provider()
+        prompt = f"You are LuminaLib AI coach. User {user.id} stats: total {total}, avg {avg_pct}%, avg time {avg_time}s, pass rate {pass_rate}%. Weakest attempts: {weakest[0].percentage if weakest else 'n/a'}%. Give 3 concise, actionable, personalized improvement suggestions grounded ONLY in these numbers. No generic advice, no false data. Return JSON array of strings."
+        if hasattr(llm, "summarize"):
+            raw = await llm.summarize(prompt)
+            import json
+            txt = (raw or "").strip()
+            if "```" in txt:
+                txt = txt.split("```")[1]
+                if txt.startswith("json"):
+                    txt = txt[4:]
+            try:
+                parsed = json.loads(txt)
+                if isinstance(parsed, list):
+                    suggestions = [str(s) for s in parsed[:3]]
+                elif isinstance(parsed, dict) and "suggestions" in parsed:
+                    suggestions = [str(s) for s in parsed["suggestions"][:3]]
+                else:
+                    suggestions = [txt[:300]]
+            except:
+                suggestions = [txt[:400]] if txt else []
+    except Exception:
+        pass
+    if not suggestions:
+        # Deterministic fallback grounded in real stats — still user-specific
+        if avg_pct < 50:
+            suggestions.append(f"Your average is {avg_pct}% — focus on reviewing explanations for failed quizzes before retaking. You pass {pass_rate}% of attempts.")
+        elif pass_rate < 80:
+            suggestions.append(f"You pass {pass_rate}% — increase accuracy by spending ~{max(0, 120 - avg_time)}s more per quiz reviewing flagged questions.")
+        else:
+            suggestions.append(f"Strong {avg_pct}% avg — maintain streak by attempting 1 new quiz this week.")
+        if avg_time and avg_time < 300:
+            suggestions.append(f"Avg time {avg_time}s is low — consider using full duration ({weakest[0].quiz_id if weakest else ''}) to double-check descriptive answers.")
+        if len(weakest) > 0:
+            suggestions.append(f"Weakest result was {weakest[0].percentage}% — revisit that quiz's explanations and retry after 48h for spaced repetition.")
+    # Deduplicate and cap
+    seen = []
+    for s in suggestions:
+        if s not in seen:
+            seen.append(s)
+    return {"user_id": user.id, "has_data": True, "stats": stats, "suggestions": seen[:3], "grounded": True}
+
+
+# ── Completeness (12-field weighted) ────────────────────────────────────────
+
+@router.get("/me/completeness", summary="Get profile completeness (12-field weighted)")
+async def get_completeness(user: User = Depends(get_current_user)):
+    def filled(v):
+        if v is None: return False
+        if isinstance(v, str): return v.strip() != ""
+        if isinstance(v, list): return len(v) > 0
+        if isinstance(v, dict): return any(bool(x) and str(x).strip() != "" for x in v.values())
+        return bool(v)
+    fields = {
+        "avatar": filled(user.avatar_url),
+        "full_name": filled(user.full_name),
+        "bio": filled(user.bio),
+        "dob": filled(user.dob),
+        "profession": filled(user.profession),
+        "hobbies": filled(user.hobbies),
+        "interests": filled(user.interests),
+        "favorite_topics": filled(user.favorite_topics),
+        "favorite_genres": filled(user.favorite_genres),
+        "preferred_language": filled(user.preferred_language),
+        "education_records": filled(user.education_records),
+        "contact_info": filled(user.contact_info and (user.contact_info.get("primary_mobile") or user.contact_info.get("city"))),
+    }
+    # weighted: core 40%, interests 30%, education 15%, contact 15%
+    weights = {"avatar":5,"full_name":10,"bio":5,"dob":10,"profession":10,"hobbies":7,"interests":7,"favorite_topics":7,"favorite_genres":7,"preferred_language":5,"education_records":15,"contact_info":12}
+    score = sum(weights[k] for k,v in fields.items() if v)
+    total = sum(weights.values())
+    pct = round(score/total*100)
+    return {"percentage": pct, "fields": fields, "score": score, "total": total, "profile_completed": pct >= 80}
+
+
 # ── Preferences ────────────────────────────────────────────────────────────────
 
 @router.get("/me/preferences", response_model=UserPreferencesRead, summary="Get current user preferences")

@@ -44,13 +44,21 @@ async def get_recommendations(
         if getattr(b, "access_level", "public") != "private" or b.id in authorized_private_ids
     ]
 
+    import time
+    t0 = time.perf_counter()
+
     if book_id:
         target = next((b for b in books if b.id == book_id), None)
         if target:
             model_results = recommend_from_model(target, books, limit=limit)
-            if model_results:
-                return model_results
-            return recommend_similar_books(target, books, limit=limit)
+            results = model_results if model_results else recommend_similar_books(target, books, limit=limit)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            try:
+                from luminalib.core.telemetry import record_recommendation_event
+                record_recommendation_event(num_books=len(results), latency_ms=elapsed_ms)
+            except Exception:
+                pass
+            return results
 
     # Fetch user preferences
     pref_result = await session.execute(
@@ -61,12 +69,20 @@ async def get_recommendations(
     # Fetch user borrowing history to inform recommendations
     borrowed_books = await borrow_repo.get_user_borrowed_books(user.id)
     
-    return recommend_books(
+    results = recommend_books(
         books, 
         preferences=pref.preferences if pref else {}, 
         borrowed_books=borrowed_books,
         limit=limit
     )
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    try:
+        from luminalib.core.telemetry import record_recommendation_event
+        record_recommendation_event(num_books=len(results), latency_ms=elapsed_ms)
+    except Exception:
+        pass
+
+    return results
 
 
 @router.post("/train", summary="Train recommendation model (admin)")

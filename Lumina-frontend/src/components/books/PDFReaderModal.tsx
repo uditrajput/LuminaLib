@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import apiClient from "@/services/apiClient";
+import voiceService from "@/services/voiceService";
+import { useAppDialog } from "@/components/ui/AppDialog";
 
 // Add Promise.withResolvers polyfill for pdfjs-dist@4
 if (typeof window !== 'undefined' && typeof (Promise as any).withResolvers === 'undefined') {
@@ -167,6 +169,7 @@ function PageThumbnailItem({ pdfDoc, pageNum, isCurrent, onClick }: { pdfDoc: an
 
 
 export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
+    const { showAlert } = useAppDialog();
     const [pdfDoc, setPdfDoc] = useState<any>(null);
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
@@ -229,9 +232,32 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
         }
     }, [book.id, STORAGE_KEY_PAGE, STORAGE_KEY_HIGHLIGHTS, STORAGE_KEY_FRAME]);
 
+    // User voice preferences
+    const [userVoicePref, setUserVoicePref] = useState<{ voice: string; speed: number }>({ voice: "af_bella", speed: 1.0 });
+
+    useEffect(() => {
+        voiceService.getPreferences().then((prefs) => {
+            if (prefs) {
+                setUserVoicePref({ voice: prefs.voice || "af_bella", speed: prefs.speed || 1.0 });
+            }
+        }).catch(() => {});
+    }, []);
+
+    // Stop active speech when unmounting modal
+    useEffect(() => {
+        return () => {
+            voiceService.stopCurrentSpeech();
+        };
+    }, []);
+
     // Save page change to localStorage
     const handlePageChange = useCallback((newPage: number) => {
         if (newPage < 1 || (numPages > 0 && newPage > numPages)) return;
+        voiceService.stopCurrentSpeech();
+        setIsSpeakingSelection(false);
+        setSpeakingHighlightId(null);
+        setSelectedText("");
+        setSelectionCoords(null);
         setCurrentPage(newPage);
         try {
             localStorage.setItem(STORAGE_KEY_PAGE, newPage.toString());
@@ -277,13 +303,88 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
         } catch (e) {}
     };
 
-    // Save highlights to localStorage
+    // Save highlights to localStorage + backend (progress API)
     const saveHighlights = (newHighlights: Highlight[]) => {
         setHighlights(newHighlights);
         try {
             localStorage.setItem(STORAGE_KEY_HIGHLIGHTS, JSON.stringify(newHighlights));
         } catch (e) {}
     };
+
+    const persistHighlightToBackend = async (hl: Highlight) => {
+        try {
+            await apiClient.post("/progress/highlights", { book_id: Number(book.id), page: hl.page, text: hl.text, rects: null, note: null, color: hl.color });
+        } catch {}
+    };
+
+    // Sync highlights from backend on mount (merge)
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await apiClient.get(`/progress/highlights/${book.id}`);
+                const remote = (res.data as any[]) || [];
+                if (!cancelled && remote.length > 0) {
+                    const mapped: Highlight[] = remote.map((r: any) => ({
+                        id: String(r.id),
+                        page: r.page,
+                        text: r.text,
+                        color: r.color || "#fef08a",
+                        colorName: r.color || "Yellow",
+                        timestamp: new Date(r.created_at).getTime(),
+                    }));
+                    // merge unique by text+page
+                    setHighlights(prev => {
+                        const existing = new Set(prev.map(p => `${p.page}::${p.text}`));
+                        const merged = [...prev];
+                        for (const m of mapped) if (!existing.has(`${m.page}::${m.text}`)) merged.unshift(m);
+                        return merged;
+                    });
+                }
+            } catch {}
+        })();
+        return () => { cancelled = true; };
+    }, [book.id]);
+
+    // Reading telemetry heartbeat — every 15s + on page change
+    const readingStartRef = useRef<number>(Date.now());
+    useEffect(() => {
+        readingStartRef.current = Date.now();
+    }, [book.id]);
+    useEffect(() => {
+        const sendProgress = async () => {
+            const pct = numPages ? Math.round((currentPage / numPages) * 100) : 0;
+            const duration = Math.floor((Date.now() - readingStartRef.current) / 1000);
+            if (duration < 3) return;
+            try {
+                await apiClient.post("/progress", { book_id: Number(book.id), pages_read: currentPage, progress_pct: pct, duration_seconds: duration });
+                readingStartRef.current = Date.now();
+            } catch {}
+        };
+        const id = setInterval(sendProgress, 15000);
+        return () => clearInterval(id);
+    }, [book.id, currentPage, numPages]);
+    // also send on page change immediately (debounced)
+    useEffect(() => {
+        const pct = numPages ? Math.round((currentPage / numPages) * 100) : 0;
+        apiClient.post("/progress", { book_id: Number(book.id), pages_read: currentPage, progress_pct: pct, duration_seconds: 2 }).catch(() => {});
+    }, [currentPage]);
+
+    // Citation jump — if semantic search stored a query, auto-run text search once doc loads
+    useEffect(() => {
+        if (!pdfDoc) return;
+        try {
+            const key = `luminalib_search_jump_${book.id}`;
+            const q = localStorage.getItem(key);
+            if (q) {
+                setFullTextQuery(q);
+                executeTextSearch(q);
+                setShowLeftPanel(true);
+                setPanelTab("text-search");
+                localStorage.removeItem(key);
+            }
+        } catch {}
+    }, [pdfDoc, book.id, executeTextSearch]);
 
     // Load PDF document
     useEffect(() => {
@@ -297,7 +398,12 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                     responseType: "arraybuffer",
                 });
 
-                const loadingTask = pdfjs.getDocument({ data: new Uint8Array(response.data) });
+                const loadingTask = pdfjs.getDocument({
+                    data: new Uint8Array(response.data),
+                    cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/cmaps/",
+                    cMapPacked: true,
+                    standardFontDataUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/standard_fonts/",
+                });
                 const pdf = await loadingTask.promise;
                 if (!isMounted) return;
 
@@ -372,7 +478,7 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                     span.style.left = `${tx[4]}px`;
                     span.style.top = `${tx[5] - fontHeight}px`;
                     span.style.fontSize = `${fontHeight}px`;
-                    span.style.fontFamily = item.fontName || "sans-serif";
+                    span.style.fontFamily = item.fontName || "'Noto Sans Devanagari', 'Mangal', sans-serif";
                     span.style.position = "absolute";
                     span.style.transformOrigin = "0% 0%";
                     span.className = "select-text hover:bg-yellow-100/30 cursor-text transition-colors";
@@ -388,12 +494,32 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
         renderPage();
     }, [renderPage]);
 
+    // Escape key shortcut to immediately stop speech
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && isSpeakingSelection) {
+                stopSpeech();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isSpeakingSelection]);
+
     // Handle text selection
-    const handleMouseUp = () => {
+    const handleMouseUp = (e?: React.MouseEvent) => {
+        // If mouse event was triggered on the floating tooltip or any button, do not clear selection
+        const target = e?.target as HTMLElement | null;
+        if (target && (target.closest(".action-tooltip") || target.closest("button"))) {
+            return;
+        }
+
         const selection = window.getSelection();
         const text = selection?.toString().trim();
 
         if (text && text.length > 0) {
+            if (isSpeakingSelection) {
+                stopSpeech();
+            }
             setSelectedText(text);
             const range = selection?.getRangeAt(0);
             if (range && containerRef.current) {
@@ -405,36 +531,58 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                 });
             }
         } else {
+            // User clicked outside the menu
+            if (isSpeakingSelection) {
+                stopSpeech();
+            }
             setSelectedText("");
             setSelectionCoords(null);
         }
     };
 
-    // Text to speech for selection or highlight
-    const speakText = (text: string, highlightId?: string) => {
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.onstart = () => {
-                setIsSpeakingSelection(true);
-                setSpeakingHighlightId(highlightId || null);
-            };
-            utterance.onend = () => {
-                setIsSpeakingSelection(false);
-                setSpeakingHighlightId(null);
-            };
-            utterance.onerror = () => {
-                setIsSpeakingSelection(false);
-                setSpeakingHighlightId(null);
-            };
-            window.speechSynthesis.speak(utterance);
+    // Text to speech for selection or highlight (authentic Hindi / Sanskrit / English via voiceService)
+    const speakText = async (text: string, highlightId?: string) => {
+        if (!text || !text.trim()) return;
+
+        // Clean up OCR/PDF formatting artifacts (soft hyphens, line breaks, double spaces)
+        const cleanText = text
+            .replace(/-\s*\n\s*/g, "") // remove hyphenation across line breaks: "inter-\nface" -> "interface"
+            .replace(/[\r\n\t]+/g, " ") // replace newlines and tabs with space
+            .replace(/\s+/g, " ")      // collapse multiple whitespace
+            .trim();
+
+        if (!cleanText) return;
+
+        setIsSpeakingSelection(true);
+        setSpeakingHighlightId(highlightId || null);
+
+        try {
+            await voiceService.speakText(cleanText, {
+                voice: userVoicePref.voice,
+                speed: userVoicePref.speed,
+                onStart: () => {
+                    setIsSpeakingSelection(true);
+                    setSpeakingHighlightId(highlightId || null);
+                },
+                onEnd: () => {
+                    setIsSpeakingSelection(false);
+                    setSpeakingHighlightId(null);
+                },
+                onError: (err) => {
+                    console.warn("TTS playback error:", err);
+                    setIsSpeakingSelection(false);
+                    setSpeakingHighlightId(null);
+                },
+            });
+        } catch (err) {
+            console.error("speakText execution failed:", err);
+            setIsSpeakingSelection(false);
+            setSpeakingHighlightId(null);
         }
     };
 
     const stopSpeech = () => {
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-        }
+        voiceService.stopCurrentSpeech();
         setIsSpeakingSelection(false);
         setSpeakingHighlightId(null);
     };
@@ -453,6 +601,7 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
         };
 
         saveHighlights([newHighlight, ...highlights]);
+        persistHighlightToBackend(newHighlight);
         setSelectedText("");
         setSelectionCoords(null);
         window.getSelection()?.removeAllRanges();
@@ -461,6 +610,11 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
     // Delete highlight
     const deleteHighlight = (id: string) => {
         saveHighlights(highlights.filter((h) => h.id !== id));
+        // also delete on backend (best effort, match by text+page)
+        const hl = highlights.find(h => h.id === id);
+        if (hl) {
+            apiClient.delete(`/progress/highlights/${id}`).catch(() => {});
+        }
     };
 
     // Filter pages for left panel search
@@ -844,18 +998,29 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                     {/* Floating Text Selection Action Tooltip */}
                     {selectedText && selectionCoords && (
                         <div
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
                             style={{
                                 left: `${selectionCoords.x}px`,
                                 top: `${selectionCoords.y}px`,
                             }}
-                            className="absolute z-40 -translate-x-1/2 flex items-center gap-2 bg-slate-900 text-white border border-purple-500/50 px-3 py-2 rounded-2xl shadow-2xl animate-fade-in"
+                            className="action-tooltip absolute z-40 -translate-x-1/2 flex items-center gap-2 bg-slate-900 text-white border border-purple-500/50 px-3 py-2 rounded-2xl shadow-2xl animate-fade-in"
                         >
                             {/* Read Selection Aloud */}
                             {isSpeakingSelection && !speakingHighlightId ? (
                                 <button
                                     type="button"
-                                    onClick={stopSpeech}
-                                    className="p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl transition flex items-center gap-1 text-xs font-semibold"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        stopSpeech();
+                                    }}
+                                    className="p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl transition flex items-center gap-1 text-xs font-semibold active:scale-95 shadow-md cursor-pointer"
                                     title="Stop Speaking"
                                 >
                                     <VolumeX className="h-4 w-4 animate-pulse" />
@@ -864,8 +1029,16 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => speakText(selectedText)}
-                                    className="p-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl transition flex items-center gap-1 text-xs font-semibold"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        speakText(selectedText);
+                                    }}
+                                    className="p-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl transition flex items-center gap-1 text-xs font-semibold active:scale-95 shadow-md cursor-pointer"
                                     title="Read Selected Text"
                                 >
                                     <Volume2 className="h-4 w-4" />
@@ -882,8 +1055,16 @@ export default function PDFReaderModal({ book, onClose }: PDFReaderModalProps) {
                                     <button
                                         key={c.name}
                                         type="button"
-                                        onClick={() => addHighlight(c.hex, c.name)}
-                                        className="h-5 w-5 rounded-full border border-white/20 hover:scale-125 transition-transform"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            addHighlight(c.hex, c.name);
+                                        }}
+                                        className="h-5 w-5 rounded-full border border-white/20 hover:scale-125 transition-transform cursor-pointer"
                                         style={{ backgroundColor: c.hex }}
                                         title={`Highlight in ${c.name}`}
                                     />

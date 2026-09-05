@@ -60,3 +60,28 @@ async def test_process_user_turn_text():
     assert "response_text" in res
     assert res["response_text"] != ""
     assert res["intent"] in ("qa", "general")
+    assert "audio_bytes" in res
+    assert isinstance(res["audio_bytes"], bytes)
+
+
+from app.tts import is_devanagari_text, synthesize_speech_bytes
+
+
+def test_devanagari_detection():
+    assert is_devanagari_text("नमस्ते भारत") is True
+    assert is_devanagari_text("Hello LuminaLib") is False
+    assert is_devanagari_text("श्रीमद्भगवद्गीता Chapter 1") is True
+
+
+@pytest.mark.asyncio
+async def test_synthesize_speech_and_cache():
+    text = "Unit test text for high speed neural speech synthesis."
+    audio_bytes1, media_type1 = await synthesize_speech_bytes(text, voice="af_bella", speed=1.0)
+    assert isinstance(audio_bytes1, bytes)
+    assert len(audio_bytes1) > 0
+    assert media_type1 in ("audio/mpeg", "audio/wav")
+
+    # Second call should hit the in-memory LRU cache
+    audio_bytes2, media_type2 = await synthesize_speech_bytes(text, voice="af_bella", speed=1.0)
+    assert audio_bytes1 == audio_bytes2
+    assert media_type1 == media_type2

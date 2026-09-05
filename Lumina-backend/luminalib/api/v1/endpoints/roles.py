@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +23,7 @@ class RoleSchema(BaseModel):
     is_system: bool = False
     permissions_json: dict | list
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CreateRoleRequest(BaseModel):

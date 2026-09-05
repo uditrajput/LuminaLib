@@ -29,7 +29,7 @@ describe("Q&A Page", () => {
 
     it("renders the page title and initial welcome message", () => {
         render(<QAPage />);
-        expect(screen.getByText("AI Q&A")).toBeInTheDocument();
+        expect(screen.getByText(/AI Q&A/i)).toBeInTheDocument();
         expect(screen.getByText(/Hello! I'm LuminaLib's AI assistant/i)).toBeInTheDocument();
     });
 

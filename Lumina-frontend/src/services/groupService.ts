@@ -17,9 +17,12 @@ export interface GroupBookDetail {
 }
 
 export const groupService = {
+  async list(): Promise<UserGroup[]> {
+    return groupService.getGroups();
+  },
   async getGroups(): Promise<UserGroup[]> {
     const res = await apiClient.get('/groups');
-    return res.data?.data || res.data || [];
+    return Array.isArray(res.data) ? res.data : (res.data?.data || res.data || []);
   },
 
   async createGroup(data: { name: string; description?: string }): Promise<UserGroup> {

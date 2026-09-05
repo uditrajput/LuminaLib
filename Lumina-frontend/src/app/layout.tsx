@@ -4,7 +4,12 @@ import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "LuminaLib",
-  description: "Modern library management system",
+  description: "Modern library management system — AI quizzes, telemetry, PWA offline",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({
@@ -19,6 +24,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen font-sans">
         <Providers>{children}</Providers>
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}` }} />
       </body>
     </html>
   );

@@ -70,6 +70,6 @@ class KokoroVoiceOption(BaseModel):
 class TTSGenerateRequest(BaseModel):
     """TTS generation request payload."""
 
-    text: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=10000)
     voice: str = Field(default="af_bella")
     speed: float = Field(default=1.0, ge=0.5, le=2.0)

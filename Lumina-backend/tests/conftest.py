@@ -92,7 +92,8 @@ async def client(db_session):
         mock_llm = AsyncMock()
         mock_llm.summarize.return_value = "Mocked Summary"
         mock_llm.analyze_review.return_value = "Mocked Analysis"
-        mock_llm._call.return_value = "Mocked AI Answer"
+        # provide generate alias for quiz service fallback
+        mock_llm.generate = AsyncMock(return_value="Mocked AI Answer")
         return mock_llm
     app.dependency_overrides[get_llm] = override_get_llm
 

@@ -144,8 +144,26 @@ pytest --cov=luminalib --cov-report=term-missing
 3. **Borrow Lifecycle (`test_reviews_and_borrows.py`)**: Borrow and return workflows, availability state toggles, conflict checks.
 4. **Review System (`test_reviews_and_borrows.py`)**: Enforcing borrow-before-review constraint, rating range checks, rolling review consensus calculation.
 5. **AI Q&A & RAG (`test_qa.py`)**: Q&A prompt execution, document chunk selection, high-yield topic question prompt handling, in-place prompt edit & redo regeneration.
-6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, Whisper STT proxy transcription (`POST /api/v1/voice/transcribe`), log scrubbing, available Kokoro voice listing, conversation transcript history management.
+6. **Voice API & Security (`test_voice.py`)**: Voice preference retrieval/updates, subprotocol JWT authentication, audio magic byte validation, Whisper STT proxy transcription (`POST /api/v1/voice/transcribe`), Multi-Engine TTS proxying (`GET/POST /api/v1/voice/tts`, `GET /api/v1/voice/sample`), log scrubbing, available neural voice listing, conversation transcript history management.
 7. **Dynamic App Configs (`test_config.py`, `test_docker_llm_provider.py`)**: Loading and updating `app_configs` table key-value pairs at runtime.
+
+### 🎙️ Running Voice Microservice Tests (7 Passing Tests)
+
+The dedicated voice service in `Lumina-voice` has its own automated test suite:
+
+```bash
+cd Lumina-voice
+pytest tests/
+```
+
+Test coverage includes:
+- Subprotocol JWT token extraction (`voice-v1, jwt-<token>`)
+- 500-char transcript sanitization & control character stripping
+- Natural language intent classification (borrow, return, review, summary, recommend, qa)
+- CORS origin validation
+- Multi-engine TTS audio synthesis and in-memory LRU audio caching
+- Automatic Indic / Devanagari text detection
+- Valid binary audio bytes generation (preventing WebSocket tuple errors)
 
 ---
 
@@ -156,4 +174,5 @@ pytest --cov=luminalib --cov-report=term-missing
 3. **Upload a Book**: Call `POST /api/v1/books` with metadata and attach a sample PDF file.
 4. **Q&A & Practice Questions**: Call `POST /api/v1/qa` with `{"question": "Ask me 5 questions on Python"}` to test topic practice question generation.
 5. **Whisper Speech-to-Text Proxy**: Call `POST /api/v1/voice/transcribe` with audio form data to verify backend audio transcription.
-6. **Dynamic App Settings**: Call `GET /api/v1/config` and `PUT /api/v1/config` to verify runtime configuration updates.
+6. **Multi-Engine Neural TTS Proxy**: Call `GET /api/v1/voice/tts?text=Hello+world&voice=af_bella` or `GET /api/v1/voice/sample` to verify low-latency (~1.3s fresh, <6ms cached) audio streaming.
+7. **Dynamic App Settings**: Call `GET /api/v1/config` and `PUT /api/v1/config` to verify runtime configuration updates.

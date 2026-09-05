@@ -24,6 +24,22 @@ from app.security import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("lumina_voice")
 
+loki_url = os.getenv("LOKI_URL")
+if loki_url:
+    try:
+        import logging_loki
+        loki_handler = logging_loki.LokiHandler(
+            url=loki_url,
+            tags={"application": "lumina-voice"},
+            version="1",
+        )
+        loki_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        logging.getLogger().addHandler(loki_handler)
+        logger.addHandler(loki_handler)
+        logger.info(f"Loki logging initialized for lumina-voice with URL: {loki_url}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Loki logging: {e}")
+
 app = FastAPI(
     title="LuminaLib Voice Service",
     description="Real-time Voice AI microservice for LuminaLib (STT -> LLM -> Kokoro TTS)",
@@ -78,13 +94,52 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+from pydantic import BaseModel
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str | None = "af_bella"
+    speed: float = 1.0
+
+
+@app.get("/voice/voices", summary="List available TTS voices")
+async def list_voices():
+    """Return available TTS voices for English and Indic narration."""
+    return [
+        {"code": "af_bella", "name": "Bella (US Female)", "language": "en-US", "gender": "female", "quality": "5/5"},
+        {"code": "af_sarah", "name": "Sarah (US Female)", "language": "en-US", "gender": "female", "quality": "5/5"},
+        {"code": "am_adam", "name": "Adam (US Male)", "language": "en-US", "gender": "male", "quality": "5/5"},
+        {"code": "bf_emma", "name": "Emma (UK Female)", "language": "en-GB", "gender": "female", "quality": "5/5"},
+        {"code": "bm_george", "name": "George (UK Male)", "language": "en-GB", "gender": "male", "quality": "5/5"},
+        {"code": "hindi_natural", "name": "Swara (Hindi/Sanskrit Natural)", "language": "hi-IN", "gender": "female", "quality": "5/5"},
+    ]
+
+
 @app.get("/voice/sample", summary="Generate voice audio sample")
 async def get_voice_sample(voice: str = "af_bella", speed: float = 1.0, text: str | None = None):
-    """Synthesize a short audio WAV sample for testing voice models."""
+    """Synthesize a short audio sample for testing voice models."""
     from app.tts import synthesize_speech_bytes
     sample_text = text or f"Hello! This is a test of the {voice} voice model in LuminaLib."
-    audio_bytes = await synthesize_speech_bytes(sample_text, voice=voice, speed=speed)
-    return Response(content=audio_bytes, media_type="audio/wav")
+    audio_bytes, media_type = await synthesize_speech_bytes(sample_text, voice=voice, speed=speed)
+    return Response(content=audio_bytes, media_type=media_type)
+
+
+@app.get("/voice/tts", summary="Generate TTS speech audio from query parameter")
+async def get_voice_tts(text: str, voice: str = "af_bella", speed: float = 1.0):
+    """Synthesize text to speech audio stream (Hindi/Sanskrit via Neural/gTTS, English via Neural/Kokoro)."""
+    from app.tts import synthesize_speech_bytes
+    audio_bytes, media_type = await synthesize_speech_bytes(text, voice=voice, speed=speed)
+    return Response(content=audio_bytes, media_type=media_type)
+
+
+@app.post("/voice/tts", summary="Generate TTS speech audio from POST body")
+async def post_voice_tts(payload: TTSRequest):
+    """Synthesize text to speech audio stream from POST body."""
+    from app.tts import synthesize_speech_bytes
+    audio_bytes, media_type = await synthesize_speech_bytes(payload.text, voice=payload.voice, speed=payload.speed)
+    return Response(content=audio_bytes, media_type=media_type)
+
 
 
 from fastapi import UploadFile, File
@@ -230,6 +285,8 @@ async def voice_websocket_endpoint(websocket: WebSocket, book_id: str):
 
             # Stream audio bytes to browser
             audio_bytes = turn_result.get("audio_bytes", b"")
+            if isinstance(audio_bytes, (tuple, list)):
+                audio_bytes = audio_bytes[0] if audio_bytes else b""
             if audio_bytes and websocket.client_state == WebSocketState.CONNECTED:
                 await websocket.send_bytes(audio_bytes)
 

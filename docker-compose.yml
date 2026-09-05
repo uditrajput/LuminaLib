@@ -100,6 +100,7 @@ services:
       - JWT_SECRET=change-me-in-production
       - JWT_ALGORITHM=HS256
       - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
     volumes:
       - ./Lumina-voice/models:/app/models
       - ./Lumina-backend/storage:/app/storage:ro
@@ -132,6 +133,7 @@ services:
       # Points to the host machine so browser requests reach the backend
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
       NEXT_PUBLIC_VOICE_WS_URL: ws://localhost:8001/voice/ws
+      INTERNAL_API_URL: http://backend:8000/api/v1
       NODE_ENV: production
       # Push logs to Loki directly
       LOKI_URL: http://loki:3100

@@ -64,6 +64,18 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="This account has been deactivated"
         )
+
+    # Record real-time live session presence
+    try:
+        from luminalib.core.presence import record_user_activity
+        record_user_activity(
+            user_id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+        )
+    except Exception:
+        pass
+
     return user
 
 

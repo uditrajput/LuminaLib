@@ -37,9 +37,19 @@ from luminalib.db.session import SessionLocal, engine
 from luminalib.models import (  # noqa: F401
     Book,
     BookBorrow,
+    Bookmark,
     Document,
     DocumentChunk,
+    Highlight,
     IngestionJob,
+    Notification,
+    Quiz,
+    QuizAttempt,
+    QuizAttemptAnswer,
+    QuizAttemptEvent,
+    QuizGroupEntitlement,
+    QuizQuestion,
+    ReadingSession,
     Review,
     SystemConfig,
     User,
@@ -221,12 +231,36 @@ async def _init_models() -> None:
 
         await _load_dynamic_config(session)
 
-        # Seed Roles (idempotent)
-        for role_name in ["admin", "user", "librarian"]:
+        # Seed Roles (idempotent) with permissions — v4.0
+        from luminalib.core.rbac import DEFAULT_ROLE_PERMISSIONS
+
+        for role_name in ["admin", "teacher", "user", "librarian"]:
             result = await session.execute(select(Role).where(Role.name == role_name))
-            if not result.scalar_one_or_none():
-                session.add(Role(name=role_name, created_by="system", updated_by="system"))
+            role = result.scalar_one_or_none()
+            perms = DEFAULT_ROLE_PERMISSIONS.get(role_name, [])
+            # librarian inherits teacher perms if no explicit entry
+            if role_name == "librarian" and not perms:
+                perms = DEFAULT_ROLE_PERMISSIONS.get("teacher", [])
+            perms_dict = {p: True for p in perms} if role_name != "admin" else {p: True for p in DEFAULT_ROLE_PERMISSIONS["admin"]}
+            if not role:
+                session.add(Role(name=role_name, is_system=True, permissions_json=perms_dict, description=f"System role: {role_name}", created_by="system", updated_by="system"))
+            else:
+                # Upgrade existing role if missing quiz perms
+                existing = role.permissions_json or {}
+                if isinstance(existing, list):
+                    existing = {p: True for p in existing}
+                needs_update = any(p not in existing for p in perms)
+                if needs_update or not role.is_system:
+                    role.permissions_json = {**existing, **perms_dict}
+                    role.is_system = True
         await session.commit()
+        # Ensure admin has all perms (including quiz_*)
+        adm_res = await session.execute(select(Role).where(Role.name == "admin"))
+        adm_role = adm_res.scalar_one_or_none()
+        if adm_role:
+            from luminalib.core.rbac import PERMISSIONS
+            adm_role.permissions_json = {k: True for k in PERMISSIONS.keys()}
+            await session.commit()
 
         # Seed Admin User
         admin_email = get_dynamic("admin_email")
@@ -263,6 +297,32 @@ async def _init_models() -> None:
             session.add(cfg)
             await session.commit()
             logger.info("Default system config seeded")
+
+        # Clean legacy font / mojibake in existing books
+        try:
+            from luminalib.services.devanagari_converter import is_likely_legacy_devanagari, clean_and_normalize_devanagari
+            books_res = await session.execute(select(Book))
+            cleaned_count = 0
+            for b in books_res.scalars().all():
+                modified = False
+                if b.description and is_likely_legacy_devanagari(b.description):
+                    b.description = clean_and_normalize_devanagari(b.description)
+                    modified = True
+                if b.title and is_likely_legacy_devanagari(b.title):
+                    b.title = clean_and_normalize_devanagari(b.title)
+                    modified = True
+                if b.author and is_likely_legacy_devanagari(b.author):
+                    b.author = clean_and_normalize_devanagari(b.author)
+                    modified = True
+                if modified:
+                    session.add(b)
+                    cleaned_count += 1
+            if cleaned_count > 0:
+                await session.commit()
+                logger.info("Cleaned and normalized Devanagari text in %d existing book(s).", cleaned_count)
+        except Exception as e:
+            logger.warning("Notice: Book Devanagari cleanup on startup: %s", e)
+
 
         # Backup database after seeding
         await export_database(session)
@@ -356,7 +416,7 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(LuminaBaseException, lumina_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
-from luminalib.api.v1.endpoints import admin_dashboard, ai, app_configs, auth, books, config, documents, groups, ingestion, qa, recommendations, reviews, roles, users, voice
+from luminalib.api.v1.endpoints import admin_dashboard, ai, app_configs, audiobook, auth, books, config, discussions, documents, groups, ingestion, notifications, progress, qa, quizzes, recommendations, reviews, roles, search, study, users, voice
 
 # ── Routers ─────────────────────────────────────────────
 _prefix = settings.api_v1_prefix
@@ -365,6 +425,13 @@ app.include_router(auth.router, prefix=_prefix)
 app.include_router(users.router, prefix=_prefix)
 app.include_router(roles.router, prefix=_prefix)
 app.include_router(groups.router, prefix=_prefix)
+app.include_router(quizzes.router, prefix=_prefix)
+app.include_router(study.router, prefix=_prefix)
+app.include_router(audiobook.router, prefix=_prefix)
+app.include_router(discussions.router, prefix=_prefix)
+app.include_router(search.router, prefix=_prefix)
+app.include_router(progress.router, prefix=_prefix)
+app.include_router(notifications.router, prefix=_prefix)
 app.include_router(books.router, prefix=_prefix)
 app.include_router(reviews.router, prefix=_prefix)
 app.include_router(recommendations.router, prefix=_prefix)

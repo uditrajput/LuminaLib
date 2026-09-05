@@ -173,22 +173,34 @@ export default function ProfileForm({ user }: { user: User }) {
         return !!(last.institution && last.degree && last.specialization && last.startYear && last.endYear);
     }, [watchAllFields.education_records]);
 
-    // Compute completion percentage
+    // Compute completion percentage — 12-field weighted (matches GET /users/me/completeness)
     const completionPercentage = useMemo(() => {
-        const fieldsToCheck = [
-            watchAllFields.full_name, watchAllFields.email, watchAllFields.bio,
-            watchAllFields.dob, watchAllFields.profession,
-            watchAllFields.contact_info?.primary_mobile,
-            watchAllFields.contact_info?.city
-        ];
-        
-        let filled = 0;
-        fieldsToCheck.forEach(val => {
-            if (val && val.toString().trim() !== "") filled++;
-        });
-        
-        return Math.round((filled / fieldsToCheck.length) * 100);
-    }, [watchAllFields]);
+        const filled = (v: any) => {
+            if (v == null) return false;
+            if (typeof v === "string") return v.trim() !== "";
+            if (Array.isArray(v)) return v.length > 0;
+            if (typeof v === "object") return Object.values(v).some(x => x && String(x).trim() !== "");
+            return !!v;
+        };
+        const fields: Record<string, boolean> = {
+            avatar: filled(watchAllFields.avatar_url || user.avatar_url),
+            full_name: filled(watchAllFields.full_name),
+            bio: filled(watchAllFields.bio),
+            dob: filled(watchAllFields.dob),
+            profession: filled(watchAllFields.profession),
+            hobbies: filled((user as any).hobbies),
+            interests: filled((user as any).interests),
+            favorite_topics: filled((user as any).favorite_topics),
+            favorite_genres: filled((user as any).favorite_genres),
+            preferred_language: filled((user as any).preferred_language),
+            education_records: filled(watchAllFields.education_records),
+            contact_info: filled(watchAllFields.contact_info?.primary_mobile || watchAllFields.contact_info?.city),
+        };
+        const weights: Record<string, number> = { avatar:5, full_name:10, bio:5, dob:10, profession:10, hobbies:7, interests:7, favorite_topics:7, favorite_genres:7, preferred_language:5, education_records:15, contact_info:12 };
+        const score = Object.entries(fields).filter(([,v])=>v).reduce((s,[k])=>s+weights[k],0);
+        const total = Object.values(weights).reduce((a,b)=>a+b,0);
+        return Math.round(score/total*100);
+    }, [watchAllFields, user]);
 
     const onSubmit = (data: ProfileFormValues) => {
         const processedData = {

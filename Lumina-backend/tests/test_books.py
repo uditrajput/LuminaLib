@@ -64,3 +64,29 @@ async def test_books_delete(client: AsyncClient):
 
     del_resp = await client.delete(f"/api/v1/books/{book_id}")
     assert del_resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_books_create_public_sends_notification(client: AsyncClient):
+    response = await client.post(
+        "/api/v1/books",
+        data={
+            "title": "Notification Book",
+            "author": "Notif Author",
+            "genre": "Science",
+            "year_published": 2025,
+            "description": "Book with notif",
+            "access_level": "public",
+        },
+        files={"file": ("notif.txt", b"Notification Book Content", "text/plain")}
+    )
+    assert response.status_code == 201
+    book_id = response.json()["data"]["id"]
+
+    # Check notification list
+    notif_resp = await client.get("/api/v1/notifications")
+    assert notif_resp.status_code == 200
+    res_data = notif_resp.json()
+    notifs = res_data.get("data") if isinstance(res_data, dict) and "data" in res_data else res_data
+    assert any("Notification Book" in n["title"] or f"/books/{book_id}" == n.get("link") for n in notifs)
+

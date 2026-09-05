@@ -17,6 +17,7 @@ import {
     ChevronRight, Trash2
 } from "lucide-react";
 import ProfileForm from "@/components/profile/ProfileForm";
+import { QuizHistorySection } from "@/components/profile/QuizHistorySection";
 
 // ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ type PreferenceFormData = z.infer<typeof preferenceSchema>;
 
 // ── Tab type ───────────────────────────────────────────────────────────────
 
-type Tab = "info" | "security" | "preferences";
+type Tab = "info" | "security" | "preferences" | "quiz-history";
 
 // ── Profile Avatar ─────────────────────────────────────────────────────────
 
@@ -316,21 +317,30 @@ export default function ProfilePage() {
         });
     };
 
-    if (!user) return null;
-
     // Tab config
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: "info", label: "Account Info", icon: <User className="h-4 w-4" /> },
+        { id: "quiz-history", label: "Quiz History", icon: <BookOpen className="h-4 w-4" /> },
         { id: "security", label: "Security", icon: <Lock className="h-4 w-4" /> },
         { id: "preferences", label: "Preferences", icon: <Settings className="h-4 w-4" /> },
     ];
 
+    if (!user) {
+        return (
+            <DashboardLayout>
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
     return (
         <DashboardLayout>
-            <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
+            <div className="w-full flex flex-col gap-6 animate-fade-in">
                 {/* Page Header */}
                 <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                    <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
                         Profile Management
                     </h1>
                     <p className="mt-1 text-slate-500 dark:text-slate-400 text-sm">
@@ -338,7 +348,7 @@ export default function ProfilePage() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full items-start">
                     {/* ── Sidebar ── */}
                     <aside className="lg:col-span-1 space-y-4">
                         {/* Avatar Card */}
@@ -409,10 +419,17 @@ export default function ProfilePage() {
                     </aside>
 
                     {/* ── Main Panel ── */}
-                    <main className="lg:col-span-3">
+                    <main className="lg:col-span-3 min-w-0 space-y-6">
                         {/* ── TAB: Account Info ── */}
                         {activeTab === "info" && (
                             <ProfileForm user={user} />
+                        )}
+
+                        {/* ── TAB: Quiz History ── */}
+                        {activeTab === "quiz-history" && (
+                            <div className="animate-fade-in">
+                                <QuizHistorySection />
+                            </div>
                         )}
 
                         {/* ── TAB: Security ── */}

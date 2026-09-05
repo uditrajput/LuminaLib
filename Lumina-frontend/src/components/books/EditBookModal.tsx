@@ -62,6 +62,16 @@ export default function EditBookModal({ book, onClose }: Props) {
         e.preventDefault();
         if (!title || !author || !genre || !year) { setError("Title, author, genre and year are required."); return; }
 
+        const yearNum = parseInt(year, 10);
+        if (!/^\d{4}$/.test(year) || isNaN(yearNum) || yearNum < 1400) {
+            setError("Year Published must be a 4-digit year and not less than 1400.");
+            return;
+        }
+        if (yearNum > 2100) {
+            setError("Year Published cannot be greater than 2100.");
+            return;
+        }
+
         setError(null);
         setLoading(true);
 
@@ -185,7 +195,19 @@ export default function EditBookModal({ book, onClose }: Props) {
                         </div>
                         <div className="col-span-2 space-y-1">
                             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Year Published *</label>
-                            <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="e.g. 2023" type="number" className="h-10 rounded-xl" />
+                            <Input
+                                value={year}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                    setYear(val);
+                                }}
+                                placeholder="e.g. 2024"
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={4}
+                                className="h-10 rounded-xl font-mono tracking-wider"
+                            />
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500">Must be a 4-digit year format and not less than 1400.</p>
                         </div>
                         <div className="col-span-2 space-y-1">
                             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Access Level *</label>

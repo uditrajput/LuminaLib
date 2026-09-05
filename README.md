@@ -23,7 +23,7 @@
 
 ## 📖 Overview
 
-**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 15** frontend. Powered by machine learning and LLM-based AI, it offers smart book recommendations, interactive Gemini-style Q&A over ingested documents with high-yield topic question generation, auto-generated book summaries, hands-free voice AI interaction, Mozilla Firefox & cross-browser Speech-to-Text via Whisper STT, borrow/return tracking, customizable PDF reader frame themes, profile management with contact validation, and community reviews — all delivered through a beautifully designed, responsive UI.
+**LuminaLib** is a production-ready, full-stack library management platform that combines a high-performance **FastAPI** backend with an elegant **Next.js 15** frontend. Powered by machine learning and LLM-based AI, it offers **AI-generated quizzes (MCQ+Descriptive) with timed runner & auto-grading**, **PWA offline**, **hybrid semantic search with citation jump**, **gamification (streaks/XP/badges)**, **AI Study Companion (flashcards/mind-maps)**, smart book recommendations, interactive Gemini-style Q&A, auto-generated book summaries, hands-free voice AI, borrow/return tracking, customizable PDF reader frame themes, profile management with contact validation, and community reviews — all delivered through a beautifully designed, responsive UI.
 
 ---
 
@@ -31,9 +31,9 @@
 
 | Feature | Description |
 |---|---|
-| 🎙️ **Voice AI & Cross-Browser STT** | Real-time spoken Q&A, voice borrow/return, reviews, Web Speech API live streaming for Chrome/Edge, **Mozilla Firefox `MediaRecorder` + Whisper STT** (`Lumina-voice`), 30s action confirmations, Web Speech sample previewing, and Kokoro TTS audio streaming |
+| 🎙️ **Voice AI & Cross-Browser STT** | Real-time spoken Q&A, voice borrow/return, reviews, Web Speech API live streaming for Chrome/Edge, **Mozilla Firefox `MediaRecorder` + Whisper STT** (`Lumina-voice`), **Multi-Engine Neural TTS** (Microsoft Edge-TTS primary ~1.3s, Kokoro-82M offline fallback, gTTS Indic fallback), **in-memory LRU audio caching (<6ms)**, single-header WAV concatenation, 30s action confirmations, and Web Speech previewing |
 | 🤖 **Gemini-Style AI Q&A & Topic Practice** | Interactive RAG Q&A — persistent session history, **draft chat auto-filtering** (empty new chats omitted from history), **interactive 3D glassmorphism deletion modal**, **Gemini-style prompt editor & in-place updates**, **in-place response regeneration (Redo)** without prompt duplication, and 1-click `✨ Answer` action buttons for high-yield topic practice |
-| 🗣️ **Clean Speech Synthesis** | Voice mode automatically strips page numbers (e.g. *"On Page 12"*), citations (`[1]`), table pipes (`|`), and formatting artifacts for clean, natural narration |
+| 🗣️ **Clean Speech Synthesis** | Studio-quality neural voice narration with automatic text filtering that strips page numbers (e.g. *"On Page 12"*), bracketed citations (`[1]`), table pipes (`|`), and formatting artifacts for clean, natural speech in English, Hindi, and Sanskrit |
 | 📖 **PDF Reader & Frame Themes** | Integrated PDF reader featuring 8 customizable book frame themes, single-column enlarged thumbnails with page numbers below, text search panel, space-preserved text selection, and frame-anchored glassmorphism navigation buttons |
 | 👤 **Profile & Contact Integrity** | Custom avatar picture upload with persistence, **strict mobile validation** (Primary and Secondary mobile numbers must be different), and **password reset session revocation** (invalidates active sessions for clean re-login) |
 | 📊 **Clean User Dashboard** | Optimized dashboard layout with non-functioning search bar and notification bell icon removed for clean, focused user library tracking |
@@ -42,12 +42,22 @@
 | 🛡️ **Security Audit Remediated** | Full remediation of security audit findings (`CRIT-001` to `LOW-004`): subprotocol JWT WebSocket auth, 500-char transcript sanitization, JWT log scrubbing, audio header magic byte validation, and security headers |
 | 🔌 **LLM Provider Options** | Dynamically switch between Docker Model Runner, OpenRouter, Ollama, OpenAI API, and Mock without restarting servers |
 | 💡 **Smart Recommendations** | 3-tier recommendation engine combining ML-based collaborative filtering (scikit-learn), content similarity, and user preference profiles |
+| 📝 **Quiz & Assessment (v4.0)** | **MCQ (single/multi) + Descriptive**, **AI generation from book/topic** via LLM Factory, **group assignment** (`quiz_group_entitlements`), **Instruction → Start → server-timed Runner (palette/flag/autosave `10s`/`sendBeacon`/reaper) → auto/manual submit → MCQ auto-grade + descriptive AI-assisted grading**, RBAC `quiz_manage/attempt/review` |
+| 🔍 **Hybrid Search + Citations** | BM25 LIKE + embedding fallback, page snippet + **jump-to-page** in `PDFReaderModal` `text-search` tab, `GET /search` |
+| 🎮 **Gamification** | Streak days, XP/Level, badges (`5 Books`, `Hour Reader`), `ReadingJourney` `GET /progress/stats` |
+| 🧠 **AI Study Companion** | Flashcards/Anki TSV, MCQs, summaries, **mermaid mindmaps** from highlights `POST /study/generate`, Dashboard `StudyCompanion` + Highlights drawer button |
+| 🎧 **Audiobook Narration** | Native Indic (Hindi/Sanskrit) and English audio narration via Multi-Engine Neural TTS (`GET /books/{id}/audio/stream`) |
+| 💬 **Social Reading** | Per-book threads `GET/POST /books/{id}/discussions` (reviews reuse) + follow stub |
+| 📊 **Notifications** | In-app bell `NotificationBell` `GET /notifications` 30s poll + `POST /notifications/read-all`, quiz assign creates `quiz_assigned` notification |
+| 📖 **PWA Offline** | `manifest.json` + `sw.js` `luminalib-v4` cache-first pdfs, network-first api |
+| 🌐 **i18n + a11y** | `LangContext` `en|hi|es`, `LangToggle`, skip link `DashboardLayout`, `prefers-reduced-motion` in `globals.css` |
 | 📄 **Document Ingestion** | Async background chunking & embedding pipeline with job tracking |
 | 📖 **Borrow / Return** | Track borrow lifecycle per user with availability conflict detection |
 | ⭐ **Reviews & Ratings** | Post-borrow user reviews with rolling AI review consensus summary |
-| 🔐 **Secure Auth** | JWT signup/login, 12-character strict password enforcement, profile updates |
+| 🔐 **Secure Auth** | JWT signup/login, 12-character strict password enforcement, profile updates, `GET /users/me/completeness` 12-field weighted |
 | 📊 **Observability & SSO** | Full-stack Loki log aggregation & secure Grafana dashboards proxied via Next.js Edge Middleware SSO |
 | 🐳 **Docker Deployment** | One-command full-stack orchestration (`docker compose up --build -d`) with health checks & named bridge network |
+| 📈 **Reading Telemetry** | `reading_sessions` + `POST /progress` heartbeat `15s`, `GET /progress/stats`, highlights `POST /progress/highlights` sync to RAG |
 
 ---
 
@@ -65,8 +75,9 @@ LuminaLib/                          ← Monorepo root
 │   ├── pyproject.toml
 │   └── .env.example
 │
-├── Lumina-voice/                   ← Voice AI Agent Microservice · FastAPI · WebSockets · Kokoro TTS · Whisper STT
-│   ├── app/                        ← main, pipeline, action_executor, intent, security, stt (faster-whisper), tts (Kokoro)
+├── Lumina-voice/                   ← Voice AI Agent Microservice · FastAPI · WebSockets · Multi-Engine TTS (Edge-TTS / Kokoro / gTTS) · Whisper STT
+│   ├── app/                        ← main, pipeline, action_executor, intent, security, stt (faster-whisper), tts (Multi-Engine)
+│   ├── tests/                      ← 7 pytest unit tests (auth, intent, multi-engine TTS, caching, Indic detection)
 │   ├── Dockerfile
 │   └── requirements.txt
 │
@@ -94,10 +105,10 @@ LuminaLib/                          ← Monorepo root
 │
 ├── grafana/                        ← Grafana Provisioning (Dashboards & Datasources)
 │   ├── provisioning/
-│   │   ├── dashboards/             ← Pre-configured JSON dashboards (Backend & Frontend Loki logs)
-│   │   └── datasources/             subterranean Loki datasource configuration
+│   │   ├── dashboards/             ← Pre-configured JSON dashboards (Executive, AI/Voice, System Health, Logs)
+│   │   └── datasources/            ← Dual datasources (PostgreSQL & Loki log aggregation)
 │   │
-├── docker-compose.yml              ← Orchestrates all 6 microservices on lumina-net
+├── docker-compose.yml              ← Orchestrates all 7 microservices on lumina-net
 ├── deploy.ps1                      ← PowerShell deployment helper script
 └── README.md                       ← You are here
 ```
@@ -128,8 +139,9 @@ LuminaLib/                          ← Monorepo root
 |---|---|
 | Service Framework | FastAPI + WebSockets (`:8001`) |
 | Speech-to-Text | Whisper STT (`faster-whisper`) for Firefox & Cross-Browser audio transcription |
-| Text-to-Speech | Kokoro-82M TTS (ONNX Runtime CPU) + Web Speech API browser previewing |
+| Text-to-Speech | Multi-Engine Neural TTS (Microsoft Edge-TTS primary ~1.3s, Kokoro-82M offline fallback, gTTS Indic fallback, LRU Audio Cache) |
 | Intent Parser | Natural language pattern matcher & action executor |
+| Testing | pytest 9.1 + pytest-asyncio (7 passing test cases) |
 
 ### Frontend (`Lumina-frontend`)
 
@@ -289,6 +301,12 @@ pytest           # Run all 34 backend unit & integration tests
 pytest --cov     # Run with code coverage report
 ```
 
+**Voice Microservice Test Cases (pytest):**
+```bash
+cd Lumina-voice
+pytest tests/    # Run all 7 voice microservice unit tests (auth, intent, TTS, caching)
+```
+
 **Frontend Test Cases (Jest):**
 ```bash
 cd Lumina-frontend
@@ -325,12 +343,16 @@ All REST API endpoints are prefixed with `/api/v1` and protected via **Bearer JW
 | **users** | `GET` | `/users/me/preferences` | Get user reading preferences |
 | **users** | `PUT` | `/users/me/preferences` | Update reading preferences |
 | **voice** | `POST` | `/voice/transcribe` | Transcribe audio stream to text (Whisper STT for Firefox/Cross-Browser) |
+| **voice** | `GET/POST` | `/voice/tts` | Synthesize text to speech audio stream (Multi-Engine Neural TTS) |
+| **voice** | `GET` | `/voice/sample` | Generate voice model audio preview sample |
 | **voice** | `GET` | `/voice/conversations` | List user voice conversation history |
 | **voice** | `GET` | `/voice/conversations/{id}` | Get specific voice conversation transcript |
 | **voice** | `DELETE` | `/voice/conversations/{id}` | Clear voice conversation history |
-| **voice** | `GET` | `/voice/voices` | List available Kokoro TTS voice models |
+| **voice** | `GET` | `/voice/voices` | List available neural TTS voice models (English & Indic) |
 | **voice** | `GET/PUT` | `/voice/preferences` | Retrieve or update user voice preferences |
 | **voice** | `WS` | `ws://localhost:8001/voice/ws/{book_id}` | Real-time bi-directional audio stream |
+| **audiobook** | `GET` | `/books/{id}/audio` | Get audiobook status, chapters, and stream URL |
+| **audiobook** | `GET` | `/books/{id}/audio/stream` | Stream synthesized audiobook audio narration |
 | **config** | `GET` | `/config` | Get application configuration settings |
 | **config** | `POST/PUT` | `/config` | Create or update dynamic application config key |
 | **telemetry** | `POST` | `/api/log` | Client activity tracking telemetry (Frontend) |

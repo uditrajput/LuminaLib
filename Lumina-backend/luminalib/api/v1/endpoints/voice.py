@@ -110,12 +110,51 @@ async def get_voice_sample(voice: str = "af_bella", speed: float = 1.0, text: st
                 params={"voice": voice, "speed": speed, "text": text},
             )
             if resp.status_code == 200:
-                return Response(content=resp.content, media_type="audio/wav")
+                media_type = resp.headers.get("content-type", "audio/wav")
+                return Response(content=resp.content, media_type=media_type)
     except Exception as exc:
         logger.warning("Voice service sample proxy failed: %s", exc)
 
     from luminalib.services.voice_service import generate_fallback_sample_wav
     return Response(content=generate_fallback_sample_wav(voice), media_type="audio/wav")
+
+
+@router.get("/tts", summary="Generate TTS speech audio from query parameters")
+async def get_voice_tts_proxy(text: str, voice: str = "af_bella", speed: float = 1.0):
+    """Proxy text-to-speech audio synthesis (Hindi/Sanskrit/English) to voice microservice."""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(
+                f"{VOICE_SERVICE_URL}/voice/tts",
+                params={"text": text, "voice": voice, "speed": speed},
+            )
+            if resp.status_code == 200:
+                media_type = resp.headers.get("content-type", "audio/mpeg")
+                return Response(content=resp.content, media_type=media_type)
+    except Exception as exc:
+        logger.warning("Voice service TTS proxy failed: %s", exc)
+
+    from luminalib.services.voice_service import generate_fallback_sample_wav
+    return Response(content=generate_fallback_sample_wav(voice), media_type="audio/wav")
+
+
+@router.post("/tts", summary="Generate TTS speech audio from payload")
+async def post_voice_tts_proxy(payload: TTSGenerateRequest):
+    """Proxy text-to-speech audio synthesis from POST payload."""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                f"{VOICE_SERVICE_URL}/voice/tts",
+                json={"text": payload.text, "voice": payload.voice, "speed": payload.speed},
+            )
+            if resp.status_code == 200:
+                media_type = resp.headers.get("content-type", "audio/mpeg")
+                return Response(content=resp.content, media_type=media_type)
+    except Exception as exc:
+        logger.warning("Voice service TTS proxy failed: %s", exc)
+
+    from luminalib.services.voice_service import generate_fallback_sample_wav
+    return Response(content=generate_fallback_sample_wav(payload.voice or "af_bella"), media_type="audio/wav")
 
 
 @router.post("/transcribe", summary="Transcribe recorded audio (STT)")
@@ -131,3 +170,4 @@ async def transcribe_audio_proxy(file: UploadFile = File(...)):
     except Exception as exc:
         logger.warning("Voice service transcribe proxy failed: %s", exc)
     return {"transcript": ""}
+

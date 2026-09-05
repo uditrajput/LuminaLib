@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,16 +23,14 @@ class GroupMemberSchema(BaseModel):
     role_in_group: str
     joined_at: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BookEntitlementSchema(BaseModel):
     book_id: int
     assigned_at: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserGroupSchema(BaseModel):
@@ -41,8 +39,7 @@ class UserGroupSchema(BaseModel):
     description: str | None = None
     created_by_user_id: int | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CreateGroupRequest(BaseModel):

@@ -7,4 +7,23 @@ datasources:
     uid: Loki
     isDefault: true
     version: 1
-    editable: false
+    editable: true
+
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: luminalib
+    user: postgres
+    secureJsonData:
+      password: postgres
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1600
+    uid: LuminaLib-Postgres
+    isDefault: false
+    version: 1
+    editable: true

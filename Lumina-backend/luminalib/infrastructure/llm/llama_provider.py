@@ -20,15 +20,24 @@ class LlamaProvider:
         return await self._call(
             system_prompt="You summarize a book in 5 concise bullet points.",
             user_prompt=f"Book content:\n{content}\n\nProvide summary:",
+            max_tokens=300,
         )
 
     async def analyze_review(self, content: str) -> str:
         return await self._call(
             system_prompt="You produce a rolling consensus of reader sentiment in 3 bullet points.",
             user_prompt=f"Reviews:\n{content}\n\nProvide consensus:",
+            max_tokens=300,
         )
 
-    async def _call(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(self, prompt: str, system_prompt: str = "You are a helpful AI study assistant.") -> str:
+        return await self._call(
+            system_prompt=system_prompt,
+            user_prompt=prompt,
+            max_tokens=1500,
+        )
+
+    async def _call(self, system_prompt: str, user_prompt: str, max_tokens: int = 400) -> str:
         payload = {
             "model": "local-llm",
             "messages": [
@@ -36,7 +45,7 @@ class LlamaProvider:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 300,
+            "max_tokens": max_tokens,
         }
 
         headers: dict[str, str] = {"Content-Type": "application/json"}

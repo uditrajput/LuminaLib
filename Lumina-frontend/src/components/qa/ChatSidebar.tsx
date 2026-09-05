@@ -35,8 +35,8 @@ export default function ChatSidebar({
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Only display sessions that are not empty (message_count !== 0 or matching search)
-    const filteredSessions = sessions.filter(
-        (s) => (s.message_count === undefined || s.message_count > 0) && s.title.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredSessions = (sessions || []).filter(
+        (s) => s && (s.message_count === undefined || s.message_count > 0) && (s.title || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Group sessions by date

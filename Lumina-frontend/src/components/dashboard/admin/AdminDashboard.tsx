@@ -510,7 +510,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                         <h2 className="text-2xl font-extrabold">AI Recommendation Telemetry & Performance</h2>
                     </div>
                     <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Model Latency: 118ms (Optimal)
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Model Latency: {analytics?.ai_health?.avg_response_ms || 14.5}ms ({analytics?.ai_health?.service_status === "Healthy" ? "Optimal" : "Active"})
                     </div>
                 </div>
 

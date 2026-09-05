@@ -36,6 +36,9 @@ ml = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore",
+]
 
 [build-system]
 requires = ["setuptools>=68.0.0"]

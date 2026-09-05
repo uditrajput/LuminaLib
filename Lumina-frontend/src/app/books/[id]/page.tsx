@@ -6,14 +6,14 @@ import { useBook } from "@/hooks/useBooks";
 import {
     BookOpen, User as AuthorIcon, Calendar, Tag, Star,
     BookMarked, BookCheck, AlertCircle, RefreshCw, ChevronLeft,
-    MessageSquarePlus, Brain, Loader2, BarChart2, Trash2, Lock,
+    MessageSquarePlus, Brain, Loader2, BarChart2, Trash2, Lock, Headphones, Users2, Edit3
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    getBookReviews, addReview, borrowBook, returnBook,
+    getBookReviews, addReview, deleteReview, borrowBook, returnBook,
     getBorrowStatus, getBookSummary,
 } from "@/services/reviewService";
 import { ReviewCreate } from "@/types/review";
@@ -23,6 +23,8 @@ import EditBookModal from "@/components/books/EditBookModal";
 import DeleteConfirmModal from "@/components/books/DeleteConfirmModal";
 import PDFReaderModal from "@/components/books/PDFReaderModal";
 import VoiceWidget from "@/components/voice/VoiceWidget";
+import voiceService from "@/services/voiceService";
+import { cleanAndNormalizeDevanagari } from "@/utils/devanagariConverter";
 
 
 // Next.js 15 requires unwrapping params with `use()`
@@ -38,6 +40,36 @@ export default function BookDetailPage({ params }: PageProps) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showPdfReader, setShowPdfReader] = useState(false);
+    const [isPlayingAudiobook, setIsPlayingAudiobook] = useState(false);
+    const [audioSpeed, setAudioSpeed] = useState(1.0);
+
+    const toggleAudiobook = async () => {
+        if (isPlayingAudiobook) {
+            voiceService.stopCurrentSpeech();
+            setIsPlayingAudiobook(false);
+            return;
+        }
+
+        if (!book) return;
+        const cleanTitle = cleanAndNormalizeDevanagari(book.title || "");
+        const cleanAuthor = cleanAndNormalizeDevanagari(book.author || "");
+        const cleanDesc = cleanAndNormalizeDevanagari(book.description || "");
+
+        const isIndic = /[\u0900-\u097F]/.test(cleanTitle + cleanDesc);
+        const narrationParts = [cleanTitle];
+        if (cleanAuthor) narrationParts.push(isIndic ? `लेखक: ${cleanAuthor}` : `By ${cleanAuthor}`);
+        if (cleanDesc) narrationParts.push(cleanDesc);
+
+        const fullScript = narrationParts.join(". ");
+
+        setIsPlayingAudiobook(true);
+        await voiceService.speakText(fullScript, {
+            speed: audioSpeed,
+            onStart: () => setIsPlayingAudiobook(true),
+            onEnd: () => setIsPlayingAudiobook(false),
+            onError: () => setIsPlayingAudiobook(false),
+        });
+    };
 
 
     // ── Core book fetch ──────────────────────────────────────────────────────
@@ -65,6 +97,34 @@ export default function BookDetailPage({ params }: PageProps) {
         queryFn: () => getBookSummary(bookId),
         enabled: !!bookId,
         retry: false,
+    });
+
+    // ── Audiobook + Discussions (v4.0 wiring) ─────────────────────────────────
+    const { data: audioData } = useQuery({
+        queryKey: ["audiobook", bookId],
+        queryFn: async () => {
+            const r = await (await import("@/services/apiClient")).default.get(`/books/${bookId}/audio`);
+            return r.data;
+        },
+        enabled: !!bookId,
+        retry: false,
+    });
+    const { data: discussions, refetch: refetchDisc } = useQuery({
+        queryKey: ["discussions", bookId],
+        queryFn: async () => {
+            const r = await (await import("@/services/apiClient")).default.get(`/books/${bookId}/discussions`);
+            return r.data as any[];
+        },
+        enabled: !!bookId,
+        retry: false,
+    });
+    const [discText, setDiscText] = useState("");
+    const discMut = useMutation({
+        mutationFn: async () => {
+            const api = (await import("@/services/apiClient")).default;
+            return api.post(`/books/${bookId}/discussions`, { content: discText, rating: 5 });
+        },
+        onSuccess: async () => { setDiscText(""); refetchDisc(); },
     });
 
     // ── Mutations ────────────────────────────────────────────────────────────
@@ -100,19 +160,63 @@ export default function BookDetailPage({ params }: PageProps) {
         },
     });
 
+    // ── Pagination limits for reviews and discussions ────────────────────────
+    const [reviewsLimit, setReviewsLimit] = useState(3);
+    const [discussionsLimit, setDiscussionsLimit] = useState(5);
+
     // ── Review form state ────────────────────────────────────────────────────
+    const userReview = reviews?.find((r) => String(r.user_id) === String(user?.id));
+    const [isEditingReview, setIsEditingReview] = useState(false);
     const [reviewText, setReviewText] = useState("");
     const [rating, setRating] = useState(5);
     const [reviewHover, setReviewHover] = useState(0);
+
+    const handleStartEditReview = (targetReview?: any) => {
+        const target = targetReview || userReview;
+        if (target) {
+            setReviewText(target.review_text);
+            setRating(target.rating);
+            setIsEditingReview(true);
+        }
+    };
+
+    const handleCancelEditReview = () => {
+        setIsEditingReview(false);
+        setReviewText("");
+        setRating(5);
+    };
+
     const reviewMut = useMutation({
         mutationFn: (data: ReviewCreate) => addReview(bookId, data),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["reviews", bookId] });
             qc.invalidateQueries({ queryKey: ["summary", bookId] });
+            setIsEditingReview(false);
             setReviewText("");
             setRating(5);
         },
     });
+
+    const [deleteReviewTargetId, setDeleteReviewTargetId] = useState<number | null>(null);
+    const [showDeleteReviewModal, setShowDeleteReviewModal] = useState(false);
+
+    const deleteReviewMut = useMutation({
+        mutationFn: (reviewId?: number) => deleteReview(bookId, reviewId),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["reviews", bookId] });
+            qc.invalidateQueries({ queryKey: ["summary", bookId] });
+            setIsEditingReview(false);
+            setReviewText("");
+            setRating(5);
+            setShowDeleteReviewModal(false);
+            setDeleteReviewTargetId(null);
+        },
+    });
+
+    const handleDeleteReview = (reviewId?: number) => {
+        setDeleteReviewTargetId(reviewId || null);
+        setShowDeleteReviewModal(true);
+    };
 
     // ── Derived states ───────────────────────────────────────────────────────
     const status = borrowStatus?.status?.toLowerCase();
@@ -235,9 +339,47 @@ export default function BookDetailPage({ params }: PageProps) {
                                         <span className="text-xs text-slate-400 dark:text-slate-500">({summary.total_reviews} reviews)</span>
                                     </div>
                                 )}
+                                {/* Audiobook & Discussions */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={toggleAudiobook}
+                                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium cursor-pointer transition-all ${
+                                            isPlayingAudiobook
+                                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm ring-2 ring-indigo-300 dark:ring-indigo-800"
+                                                : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                        }`}
+                                    >
+                                        <Headphones className={`h-3.5 w-3.5 ${isPlayingAudiobook ? "animate-pulse" : ""}`} />
+                                        {isPlayingAudiobook ? "Playing Audiobook • Click to Pause" : "Audiobook • Ready"}
+                                    </button>
+
+                                    {isPlayingAudiobook && (
+                                        <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full text-xs text-slate-600 dark:text-slate-300 border">
+                                            <span className="font-mono">{audioSpeed}x</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const nextSpeed = audioSpeed === 1.0 ? 1.25 : audioSpeed === 1.25 ? 1.5 : audioSpeed === 1.5 ? 0.75 : 1.0;
+                                                    setAudioSpeed(nextSpeed);
+                                                }}
+                                                className="hover:text-indigo-600 font-semibold px-1 underline"
+                                                title="Change speed"
+                                            >
+                                                Speed
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs text-slate-500">
+                                        <Users2 className="h-3.5 w-3.5" /> {discussions?.length ?? 0} discussions
+                                    </span>
+                                </div>
 
                                 {book.description && (
-                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{book.description}</p>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
+                                        {cleanAndNormalizeDevanagari(book.description)}
+                                    </p>
                                 )}
                             </div>
 
@@ -370,50 +512,182 @@ export default function BookDetailPage({ params }: PageProps) {
                     </div>
                 )}
 
+                {/* Discussions (Social Reading) */}
+                <div className="space-y-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                            <Users2 className="h-5 w-5 text-indigo-500" /> Discussions
+                        </h2>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {(discussions || []).length} posts
+                        </span>
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            value={discText}
+                            onChange={(e) => setDiscText(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey && discText.trim() && !discMut.isPending) {
+                                    e.preventDefault();
+                                    discMut.mutate();
+                                }
+                            }}
+                            placeholder="Share a thought with your cohort…"
+                            className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                        />
+                        <Button
+                            onClick={() => discMut.mutate()}
+                            disabled={!discText.trim() || discMut.isPending}
+                            className="rounded-xl px-5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                            {discMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post"}
+                        </Button>
+                    </div>
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                        {(discussions || []).length === 0 ? (
+                            <p className="text-xs text-slate-400 dark:text-slate-500 py-4 text-center">
+                                No discussions yet — share the first thought!
+                            </p>
+                        ) : (
+                            (discussions || []).slice(0, discussionsLimit).map((d: any) => {
+                                const isMe = String(d.user_id) === String(user?.id);
+                                const authorName = d.user_name || (isMe ? (user?.full_name || "You") : "Reader");
+                                return (
+                                    <div key={d.id} className="p-3.5 border border-slate-100 dark:border-slate-800 rounded-xl text-sm bg-slate-50/70 dark:bg-slate-800/60 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold text-[10px] flex items-center justify-center">
+                                                    {(authorName[0] || "U").toUpperCase()}
+                                                </div>
+                                                <span className="font-semibold text-xs text-slate-900 dark:text-slate-200">
+                                                    {authorName}
+                                                    {isMe && (
+                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-normal bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300">
+                                                            You
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                                                {new Date(d.created_at).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-800 dark:text-slate-200 pl-8">{d.content}</p>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                    {(discussions || []).length > discussionsLimit && (
+                        <div className="text-center pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setDiscussionsLimit((prev) => prev + 5)}
+                                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline px-4 py-2"
+                            >
+                                Load More Discussions ({(discussions || []).length - discussionsLimit} remaining) ↓
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {/* Reviews list */}
                 <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white border-l-4 border-blue-600 pl-3">Reviews</h2>
-                    {reviews && reviews.length > 0 ? reviews.map((rev) => {
-                        // Backend schemas handle date named `created_date` or `created_at` depending on model/schema alignment
-                        const rawDate = (rev as any).created_date || (rev as any).created_at;
-                        const dateObj = new Date(rawDate);
-                        const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString() : "";
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-slate-900 dark:text-white border-l-4 border-blue-600 pl-3">Reviews</h2>
+                    </div>
 
-                        return (
-                            <div key={rev.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
-                                            {(rev.full_name || "U")[0].toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{rev.full_name || "User"}</p>
-                                            <div className="flex">
-                                                {[1, 2, 3, 4, 5].map((s) => (
-                                                    <Star key={s} className={`h-3 w-3 ${s <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 dark:text-slate-700"}`} />
-                                                ))}
+                    {reviews && reviews.length > 0 ? (
+                        <>
+                            {reviews.slice(0, reviewsLimit).map((rev) => {
+                                const rawDate = (rev as any).created_date || (rev as any).created_at;
+                                const dateObj = new Date(rawDate);
+                                const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString() : "";
+                                const isMe = String(rev.user_id) === String(user?.id);
+                                const reviewerName = rev.full_name || (isMe ? (user?.full_name || "You") : "Reader");
+
+                                return (
+                                    <div key={rev.id} className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                                    {(reviewerName[0] || "U").toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{reviewerName}</p>
+                                                        {isMe && (
+                                                            <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.2 rounded-full">
+                                                                You
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex mt-0.5">
+                                                        {[1, 2, 3, 4, 5].map((s) => (
+                                                            <Star key={s} className={`h-3 w-3 ${s <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 dark:text-slate-700"}`} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                {/* On hover show pencil (edit) and delete icons at the end */}
+                                                {(isMe || isAdmin) && (
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                        {isMe && (
+                                                            <button
+                                                                onClick={() => handleStartEditReview(rev)}
+                                                                className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition rounded"
+                                                                title="Edit Review"
+                                                            >
+                                                                <Edit3 className="h-4 w-4" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDeleteReview(rev.id)}
+                                                            className="p-1 text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition rounded"
+                                                            title="Delete Review"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {dateStr && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">{dateStr}</p>}
                                             </div>
                                         </div>
+                                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed pl-10 italic">"{rev.review_text}"</p>
                                     </div>
-                                    {dateStr && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">{dateStr}</p>}
+                                );
+                            })}
+
+                            {(reviews || []).length > reviewsLimit && (
+                                <div className="text-center pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setReviewsLimit((prev) => prev + 5)}
+                                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline px-4 py-2"
+                                    >
+                                        Load More Reviews ({(reviews || []).length - reviewsLimit} remaining) ↓
+                                    </button>
                                 </div>
-                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed pl-10 italic">"{rev.review_text}"</p>
-                            </div>
-                        )
-                    }) : (
+                            )}
+                        </>
+                    ) : (
                         <p className="text-sm text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center">
                             No reviews yet. Borrow this book and be the first to review it!
                         </p>
                     )}
                 </div>
 
-                {/* Write review — show only if user currently has borrowed the book */}
-                {isAuthenticated && isBorrowed && (
+                {/* Write / Edit review form — only display when editing or writing a new review */}
+                {isAuthenticated && (isBorrowed || hasEverBorrowed) && (!userReview || isEditingReview) && (
                     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 space-y-4">
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <MessageSquarePlus className="h-5 w-5 text-blue-500" />
-                            Write a Review
-                        </h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <MessageSquarePlus className="h-5 w-5 text-blue-500" />
+                                {isEditingReview ? "Edit Your Review" : "Write a Review"}
+                            </h3>
+                        </div>
 
                         {/* Star picker */}
                         <div className="flex gap-1">
@@ -450,18 +724,30 @@ export default function BookDetailPage({ params }: PageProps) {
                         {reviewMut.isSuccess && (
                             <p className="text-xs text-green-600 flex items-center gap-1.5">
                                 <BookCheck className="h-3.5 w-3.5" />
-                                Review submitted successfully!
+                                Review saved successfully!
                             </p>
                         )}
 
-                        <Button
-                            onClick={() => reviewMut.mutate({ review_text: reviewText, rating })}
-                            disabled={reviewMut.isPending || !reviewText.trim()}
-                            className="gap-2 rounded-xl"
-                        >
-                            {reviewMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4" />}
-                            Submit Review
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => reviewMut.mutate({ review_text: reviewText, rating })}
+                                disabled={reviewMut.isPending || !reviewText.trim()}
+                                className="gap-2 rounded-xl"
+                            >
+                                {reviewMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4" />}
+                                {isEditingReview ? "Update Review" : "Submit Review"}
+                            </Button>
+                            {isEditingReview && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCancelEditReview}
+                                    className="rounded-xl"
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
@@ -476,6 +762,40 @@ export default function BookDetailPage({ params }: PageProps) {
                     onCancel={() => setShowDeleteConfirm(false)}
                     isDeleting={deleteMut.isPending}
                 />
+            )}
+
+            {showDeleteReviewModal && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 max-w-sm w-full shadow-2xl space-y-4 animate-fade-in text-center">
+                        <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 mx-auto flex items-center justify-center">
+                            <Trash2 className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Review</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Are you sure you want to delete your review for this book? This action cannot be undone.
+                            </p>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => { setShowDeleteReviewModal(false); setDeleteReviewTargetId(null); }}
+                                className="flex-1 rounded-xl border-slate-200 dark:border-slate-700"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    deleteReviewMut.mutate(deleteReviewTargetId || undefined);
+                                }}
+                                disabled={deleteReviewMut.isPending}
+                                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/20"
+                            >
+                                {deleteReviewMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showPdfReader && book && (

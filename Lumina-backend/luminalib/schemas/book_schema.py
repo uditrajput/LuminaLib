@@ -13,7 +13,7 @@ class BookCreate(BaseModel):
     title: str
     author: str
     genre: str
-    year_published: int = Field(ge=0, le=3000)
+    year_published: int = Field(ge=1400, le=2100, description="4-digit year published (min 1400)")
     description: str | None = None
     cover_image_url: str | None = None
 
@@ -24,7 +24,7 @@ class BookUpdate(BaseModel):
     title: str | None = None
     author: str | None = None
     genre: str | None = None
-    year_published: int | None = Field(default=None, ge=0, le=3000)
+    year_published: int | None = Field(default=None, ge=1400, le=2100, description="4-digit year published (min 1400)")
     description: str | None = None
     cover_image_url: str | None = None
 
@@ -54,6 +54,14 @@ class BookRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("title", "author", "description", mode="before")
+    @classmethod
+    def normalize_devanagari_fields(cls, v: str | None) -> str | None:
+        if v and isinstance(v, str):
+            from luminalib.services.devanagari_converter import clean_and_normalize_devanagari
+            return clean_and_normalize_devanagari(v)
+        return v
+
     @field_validator("group_ids", mode="before")
     @classmethod
     def extract_group_ids(cls, v, info):
@@ -62,6 +70,7 @@ class BookRead(BaseModel):
         if isinstance(v, list) and v and hasattr(v[0], "group_id"):
             return [e.group_id for e in v]
         return v or []
+
 
 
 class BookSummaryRead(BaseModel):

@@ -1,37 +1,67 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { UserDashboardMetrics } from "@/types/user";
-import { Award, BookOpen, Flag } from "lucide-react";
+import { Award, BookOpen, Flag, Flame, Star, Trophy } from "lucide-react";
+import apiClient from "@/services/apiClient";
 
 interface ReadingJourneyProps {
     metrics: UserDashboardMetrics | null;
 }
 
 export default function ReadingJourney({ metrics }: ReadingJourneyProps) {
-    if (!metrics) return null;
+    const [stats, setStats] = useState<any>(null);
+    useEffect(() => {
+        apiClient.get("/progress/stats").then(r => setStats(r.data)).catch(() => {});
+    }, []);
+    if (!metrics && !stats) return null;
 
+    const returned = metrics?.returned ?? stats?.returned ?? 0;
     const milestones = [
         {
             title: "First Book Borrowed",
-            date: metrics.recent_returns.length > 0 ? new Date(metrics.recent_returns[metrics.recent_returns.length - 1].borrowed_at).toLocaleDateString() : "Just Started",
+            date: metrics?.recent_returns?.length ? new Date(metrics.recent_returns[metrics.recent_returns.length - 1].borrowed_at).toLocaleDateString() : stats?.total_sessions ? "Started" : "Just Started",
             icon: <Flag className="w-4 h-4 text-primary" />,
-            completed: metrics.total_borrowed > 0
+            completed: (metrics?.total_borrowed ?? stats?.total_sessions ?? 0) > 0
         },
         {
             title: "5 Books Read",
-            date: metrics.returned >= 5 ? "Achieved" : `${5 - metrics.returned} more to go`,
+            date: returned >= 5 ? "Achieved" : `${5 - returned} more to go`,
             icon: <BookOpen className="w-4 h-4 text-blue-500" />,
-            completed: metrics.returned >= 5
+            completed: returned >= 5
         },
         {
             title: "Reading Champion (10 Books)",
-            date: metrics.returned >= 10 ? "Achieved" : `${10 - metrics.returned} more to go`,
+            date: returned >= 10 ? "Achieved" : `${10 - returned} more to go`,
             icon: <Award className="w-4 h-4 text-yellow-500" />,
-            completed: metrics.returned >= 10
+            completed: returned >= 10
         }
     ];
 
     return (
         <div className="bg-[var(--card)] p-6 rounded-2xl shadow-sm border border-[var(--border)]">
+            {stats && (
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 text-center">
+                        <Flame className="h-5 w-5 mx-auto text-orange-500" />
+                        <p className="text-lg font-bold">{stats.streak_days}</p>
+                        <p className="text-xs text-muted-foreground">Day Streak</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 text-center">
+                        <Star className="h-5 w-5 mx-auto text-indigo-500" />
+                        <p className="text-lg font-bold">{stats.xp} XP</p>
+                        <p className="text-xs text-muted-foreground">Level {stats.level}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-center">
+                        <Trophy className="h-5 w-5 mx-auto text-emerald-500" />
+                        <p className="text-lg font-bold">{Math.floor((stats.total_time_seconds||0)/60)}m</p>
+                        <p className="text-xs text-muted-foreground">Read Time</p>
+                    </div>
+                </div>
+            )}
+            {stats?.badges?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-6">
+                    {stats.badges.map((b:string) => <span key={b} className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">{b}</span>)}
+                </div>
+            )}
             <h2 className="text-xl font-bold mb-6">Your Reading Journey</h2>
             
             <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[1.125rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[var(--border)] before:to-transparent">

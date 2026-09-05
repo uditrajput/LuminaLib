@@ -45,7 +45,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 NEXT_PUBLIC_VOICE_WS_URL=ws://localhost:8001/voice/ws
 ```
 
-*(Note: LLM API keys and model provider selections are managed dynamically from the **App Settings Dashboard** in the browser and stored in the database, so `.env` edits are not required for AI configuration.)*
+*(Note: The frontend voice service supports both high-efficiency `audio/mpeg` (MP3) from the low-latency Edge-TTS engine and `audio/wav` from Kokoro. Audio chunks streamed over WebSocket or fetched via `/voice/tts` are decoded natively in the browser via `AudioContext.decodeAudioData()`. LLM API keys and model provider selections are managed dynamically from the **App Settings Dashboard** in the browser, so `.env` edits are not required for AI configuration.)*
 
 ### 3. Launch Development Server
 

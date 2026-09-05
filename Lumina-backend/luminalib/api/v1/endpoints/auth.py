@@ -123,7 +123,15 @@ async def change_password(
     )
 
 
-@router.post("/logout", summary="Logout (stateless — client discards token)")
-async def logout(_: User = Depends(get_current_user)) -> dict[str, str]:
-    return {"detail": "Logged out"}
+@router.post("/ping", summary="Keep session presence alive")
+async def ping_presence(user: User = Depends(get_current_user)) -> dict[str, str]:
+    return {"status": "ok", "user_id": str(user.id)}
+
+
+@router.post("/logout", summary="Logout user and end active live session")
+async def logout(user: User = Depends(get_current_user)) -> dict[str, str]:
+    from luminalib.core.presence import remove_user_activity
+    remove_user_activity(user.id)
+    return {"detail": "Logged out successfully"}
+
 

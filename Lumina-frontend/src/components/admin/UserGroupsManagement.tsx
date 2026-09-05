@@ -11,8 +11,10 @@ import {
   Users, Plus, Trash2, UserPlus, BookOpen, GraduationCap,
   X, CheckCircle2, Shield, AlertCircle, RefreshCw
 } from "lucide-react";
+import { useAppDialog } from "@/components/ui/AppDialog";
 
 export function UserGroupsManagement() {
+  const { showAlert } = useAppDialog();
   const [groups, setGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function UserGroupsManagement() {
       setShowCreateModal(false);
       fetchGroups();
     } catch (err: any) {
-      alert(err?.message || "Failed to create group.");
+      showAlert(err?.message || "Failed to create group.", { title: "Error", variant: "error" });
     } finally {
       setCreating(false);
     }
@@ -90,7 +92,7 @@ export function UserGroupsManagement() {
       await groupService.deleteGroup(groupToDelete.id);
       fetchGroups();
     } catch (err: any) {
-      alert(err?.message || "Failed to delete group.");
+      showAlert(err?.message || "Failed to delete group.", { title: "Error", variant: "error" });
     } finally {
       setGroupToDelete(null);
     }
@@ -125,7 +127,7 @@ export function UserGroupsManagement() {
       setSelectedUserId("");
       setUserSearchQuery("");
     } catch (err: any) {
-      alert(err?.message || "Failed to add member to group.");
+      showAlert(err?.message || "Failed to add member to group.", { title: "Error", variant: "error" });
     } finally {
       setAddingMember(false);
     }
@@ -137,7 +139,7 @@ export function UserGroupsManagement() {
       await groupService.removeMember(selectedGroupForMembers.id, userId);
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
     } catch (err: any) {
-      alert(err?.message || "Failed to remove member.");
+      showAlert(err?.message || "Failed to remove member.", { title: "Error", variant: "error" });
     }
   };
 
@@ -167,7 +169,7 @@ export function UserGroupsManagement() {
       setSelectedBookId("");
       setBookSearchQuery("");
     } catch (err: any) {
-      alert(err?.message || "Failed to assign book.");
+      showAlert(err?.message || "Failed to assign book.", { title: "Error", variant: "error" });
     } finally {
       setAssigningBook(false);
     }
@@ -179,7 +181,7 @@ export function UserGroupsManagement() {
       await groupService.unassignBook(selectedGroupForBooks.id, bookId);
       setAssignedBooks((prev) => prev.filter((b) => b.book_id !== bookId));
     } catch (err: any) {
-      alert(err?.message || "Failed to unassign book.");
+      showAlert(err?.message || "Failed to unassign book.", { title: "Error", variant: "error" });
     }
   };
 

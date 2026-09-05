@@ -96,7 +96,7 @@ export default function SignupPage() {
 
     return (
         <DashboardLayout>
-            <div className="flex relative overflow-hidden font-sans rounded-3xl min-h-[80vh] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 shadow-sm">
+            <div className="flex relative overflow-hidden font-sans rounded-3xl w-full max-w-6xl flex-1 min-h-0 max-h-[calc(100vh-5rem)] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 shadow-sm">
 
                 {/* 3D Background Elements */}
                 <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">

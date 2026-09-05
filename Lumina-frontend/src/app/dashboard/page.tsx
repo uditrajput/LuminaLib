@@ -13,6 +13,9 @@ import AIRecommendations from "@/components/dashboard/AIRecommendations";
 import DidYouKnow from "@/components/dashboard/DidYouKnow";
 import ReadingJourney from "@/components/dashboard/ReadingJourney";
 import GroupLibrariesSection from "@/components/dashboard/GroupLibrariesSection";
+import { QuizWidget } from "@/components/dashboard/QuizWidget";
+import { AIQuizInsights } from "@/components/dashboard/AIQuizInsights";
+import { StudyCompanion } from "@/components/study/StudyCompanion";
 import AdminDashboard from "@/components/dashboard/admin/AdminDashboard";
 import { getDashboardMetrics } from "@/services/userService";
 import { UserDashboardMetrics } from "@/types/user";
@@ -66,6 +69,9 @@ export default function DashboardPage() {
                     )}
 
                     <ReadingOverview metrics={metrics} />
+                    <QuizWidget />
+                    <AIQuizInsights />
+                    <StudyCompanion />
                     <ReadingAnalytics />
                     <GroupLibrariesSection />
                     <NewBooksSection />

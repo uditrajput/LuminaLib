@@ -98,6 +98,11 @@ async def create_book(
     book_svc: BookService = Depends(get_book_service),
     db: AsyncSession = Depends(get_db),
 ) -> Book:
+    if year_published < 1400 or year_published > 2100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Year Published must be a 4-digit year and not less than 1400.",
+        )
     content_bytes = await file.read()
 
     resolved_cover_url = cover_image_url
@@ -117,6 +122,10 @@ async def create_book(
         base_url = str(request.base_url).rstrip("/")
         resolved_cover_url = f"{base_url}/covers/{cover_key}"
 
+    from luminalib.services.devanagari_converter import format_ten_line_description
+    final_desc = format_ten_line_description(title=title, author=author, genre=genre, raw_text=description)
+
+
     book = await book_svc.create_book(
         title=title,
         author=author,
@@ -126,11 +135,12 @@ async def create_book(
         file_content=content_bytes,
         created_by=user.email,
         cover_image_url=resolved_cover_url,
-        description=description,
+        description=final_desc,
     )
     book.access_level = access_level
     book.created_by_user_id = user.id
     await db.commit()
+
 
     if access_level == "private" and group_ids:
         from luminalib.services.user_group_service import UserGroupService
@@ -139,6 +149,20 @@ async def create_book(
             await svc.assign_book(book.id, g_id)
 
     await db.refresh(book)
+
+    # Broadcast notification to all active users when a new public book is uploaded
+    if getattr(book, "access_level", "public") == "public":
+        try:
+            from luminalib.services.notification_service import notify_new_public_book
+            await notify_new_public_book(
+                db=db,
+                book_id=book.id,
+                title=book.title,
+                author=book.author,
+                genre=book.genre or "General",
+            )
+        except Exception as e:
+            logger.warning("Failed to broadcast new public book notification: %s", e)
 
     if book.content_text:
         background_tasks.add_task(_process_book_background, book.id)
@@ -156,10 +180,29 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
 ) -> BookListResponse:
     page = max(page, 1)
-    size = min(max(size, 1), 50)
+    size = min(max(size, 1), 200)
     
     from sqlalchemy import select, func, or_, desc
     from sqlalchemy.orm import selectinload
+
+    if catalog == "all":
+        if getattr(user, "role", None) and user.role.name.lower() == "admin":
+            query = select(Book).options(selectinload(Book.group_entitlements))
+        else:
+            from luminalib.services.user_group_service import UserGroupService
+            svc = UserGroupService(db)
+            authorized_ids = await svc.get_user_authorized_book_ids(user.id)
+            query = select(Book).options(selectinload(Book.group_entitlements)).where(
+                or_(Book.access_level == "public", Book.access_level == None, Book.id.in_(authorized_ids))
+            )
+        if q:
+            pattern = f"%{q}%"
+            query = query.where(or_(Book.title.ilike(pattern), Book.author.ilike(pattern), Book.genre.ilike(pattern)))
+        count_res = await db.execute(select(func.count()).select_from(query.subquery()))
+        total = count_res.scalar_one()
+        res = await db.execute(query.order_by(desc(Book.created_date)).offset((page - 1) * size).limit(size))
+        items = list(res.scalars().all())
+        return BookListResponse(items=[BookRead.model_validate(b) for b in items], total=total, page=page, size=size)
 
     if catalog == "private":
         from luminalib.services.user_group_service import UserGroupService
@@ -262,6 +305,12 @@ async def update_book(
             "access_level": access_level,
         }
         updates = {k: v for k, v in updates.items() if v is not None}
+        if "year_published" in updates and updates["year_published"] is not None:
+            if updates["year_published"] < 1400 or updates["year_published"] > 2100:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Year Published must be a 4-digit year and not less than 1400.",
+                )
 
     # Handle cover image upload if provided in form
     if cover_image is not None and cover_image.filename:

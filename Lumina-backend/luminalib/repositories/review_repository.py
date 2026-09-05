@@ -19,6 +19,16 @@ class ReviewRepository(BaseRepository[Review]):
 
     async def get_by_book(self, book_id: int) -> Sequence[Review]:
         result = await self.session.execute(
-            select(Review).where(Review.book_id == book_id)
+            select(Review)
+            .where(Review.book_id == book_id)
+            .order_by(Review.created_date.desc())
         )
         return result.scalars().all()
+
+    async def get_by_book_and_user(self, book_id: int, user_id: int) -> Review | None:
+        result = await self.session.execute(
+            select(Review).where(
+                Review.book_id == book_id, Review.user_id == user_id
+            )
+        )
+        return result.scalars().first()

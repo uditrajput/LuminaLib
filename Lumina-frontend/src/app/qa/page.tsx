@@ -363,42 +363,38 @@ export default function QAPage() {
     }, [messages]);
 
     const stopTTS = useCallback(() => {
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-        }
+        voiceService.stopCurrentSpeech();
         setIsSpeakingTTS(false);
     }, []);
 
     const speakAnswer = useCallback((text: string) => {
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
+        voiceService.stopCurrentSpeech();
 
-            let cleanText = text;
-            cleanText = cleanText.replace(/\b(on|at|from|see|in|according to)\s+(pages?|p\.)\s*\d+(\s*[-–to]\s*\d+)?\b,?/gi, "");
-            cleanText = cleanText.replace(/\b(pages?|p\.)\s*\d+(\s*[-–to]\s*\d+)?\b/gi, "");
-            cleanText = cleanText.replace(/\bpage\s+numbers?\s*\d+\b/gi, "");
-            cleanText = cleanText.replace(/\[\s*page\s*\d+.*?\]/gi, "");
-            cleanText = cleanText.replace(/\(\s*page\s*\d+.*?\)/gi, "");
-            cleanText = cleanText.replace(/\[\s*\d+\s*\]/g, "");
-            cleanText = cleanText.replace(/\(\s*(chunk|excerpt)\s*\d+\s*\)/gi, "");
-            cleanText = cleanText.replace(/\|\s*(Action|Answer)\s*\|/gi, "");
-            cleanText = cleanText.replace(/\|/g, " ");
-            cleanText = cleanText.replace(/[-:_]{3,}/g, " ");
-            cleanText = cleanText.replace(/[*#`_~]/g, "");
-            cleanText = cleanText.replace(/\(\s*\)/g, "");
-            cleanText = cleanText.replace(/\[\s*\]/g, "");
-            cleanText = cleanText.replace(/\s+,\s+/g, ", ");
-            cleanText = cleanText.replace(/\s+/g, " ").trim();
+        let cleanText = text;
+        cleanText = cleanText.replace(/\b(on|at|from|see|in|according to)\s+(pages?|p\.)\s*\d+(\s*[-–to]\s*\d+)?\b,?/gi, "");
+        cleanText = cleanText.replace(/\b(pages?|p\.)\s*\d+(\s*[-–to]\s*\d+)?\b/gi, "");
+        cleanText = cleanText.replace(/\bpage\s+numbers?\s*\d+\b/gi, "");
+        cleanText = cleanText.replace(/\[\s*page\s*\d+.*?\]/gi, "");
+        cleanText = cleanText.replace(/\(\s*page\s*\d+.*?\)/gi, "");
+        cleanText = cleanText.replace(/\[\s*\d+\s*\]/g, "");
+        cleanText = cleanText.replace(/\(\s*(chunk|excerpt)\s*\d+\s*\)/gi, "");
+        cleanText = cleanText.replace(/\|\s*(Action|Answer)\s*\|/gi, "");
+        cleanText = cleanText.replace(/\|/g, " ");
+        cleanText = cleanText.replace(/[-:_]{3,}/g, " ");
+        cleanText = cleanText.replace(/[*#`_~]/g, "");
+        cleanText = cleanText.replace(/\(\s*\)/g, "");
+        cleanText = cleanText.replace(/\[\s*\]/g, "");
+        cleanText = cleanText.replace(/\s+,\s+/g, ", ");
+        cleanText = cleanText.replace(/\s+/g, " ").trim();
 
-            if (!cleanText) return;
+        if (!cleanText) return;
 
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.rate = 1.0;
-            utterance.onstart = () => setIsSpeakingTTS(true);
-            utterance.onend = () => setIsSpeakingTTS(false);
-            utterance.onerror = () => setIsSpeakingTTS(false);
-            window.speechSynthesis.speak(utterance);
-        }
+        setIsSpeakingTTS(true);
+        voiceService.speakText(cleanText, {
+            onStart: () => setIsSpeakingTTS(true),
+            onEnd: () => setIsSpeakingTTS(false),
+            onError: () => setIsSpeakingTTS(false),
+        });
     }, []);
 
     const stopVoice = useCallback(() => {
@@ -764,7 +760,7 @@ export default function QAPage() {
         };
     }, [stopVoice, stopTTS]);
 
-    const activeSession = sessions.find((s) => s.id === activeSessionId);
+    const activeSession = sessions.find((s) => s && s.id === activeSessionId);
     const isOnlyWelcome = messages.length <= 1;
 
     const SUGGESTED_PROMPTS = [
@@ -796,7 +792,7 @@ export default function QAPage() {
 
     return (
         <DashboardLayout>
-            <div className="flex h-[calc(100vh-13rem)] min-h-[520px] max-w-7xl mx-auto border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-fade-in">
+            <div className="flex flex-1 min-h-0 max-w-7xl mx-auto w-full border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-fade-in">
                 {/* Chat Sessions Sidebar */}
                 <ChatSidebar
                     sessions={sessions}

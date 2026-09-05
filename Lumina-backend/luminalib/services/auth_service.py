@@ -178,6 +178,15 @@ class AuthService:
             )
 
         token = create_access_token(user.email)
+        try:
+            from luminalib.core.presence import record_user_activity
+            record_user_activity(
+                user_id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+            )
+        except Exception:
+            pass
         logger.info("User logged in: %s", email)
         return Token(access_token=token)
 

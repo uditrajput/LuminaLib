@@ -43,6 +43,28 @@ jest.mock('@/hooks/useAppConfigs', () => ({
   }),
 }));
 
+jest.mock('@/services/apiClient', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn().mockImplementation((url: string) => {
+      if (url === '/auth/social-status') {
+        return Promise.resolve({ data: { google: true, microsoft: true, facebook: true } });
+      }
+      return Promise.resolve({ data: {} });
+    }),
+    post: jest.fn().mockResolvedValue({ data: {} }),
+  },
+}));
+
+jest.mock('@/services/voiceService', () => ({
+  __esModule: true,
+  default: {
+    getVoices: jest.fn().mockResolvedValue([]),
+    getPreferences: jest.fn().mockResolvedValue({}),
+  },
+}));
+
+
 describe('Social Media Sign-In OAuth Buttons', () => {
   beforeEach(() => {
     (useAuth as jest.Mock).mockReturnValue({
@@ -52,12 +74,12 @@ describe('Social Media Sign-In OAuth Buttons', () => {
     });
   });
 
-  it('renders Google, Microsoft, and Facebook social login buttons on LoginPage', () => {
+  it('renders Google, Microsoft, and Facebook social login buttons on LoginPage', async () => {
     render(<LoginPage />);
 
-    expect(screen.getByText('Google')).toBeInTheDocument();
-    expect(screen.getByText('Microsoft')).toBeInTheDocument();
-    expect(screen.getByText('Facebook')).toBeInTheDocument();
+    expect(await screen.findByText('Google')).toBeInTheDocument();
+    expect(await screen.findByText('Microsoft')).toBeInTheDocument();
+    expect(await screen.findByText('Facebook')).toBeInTheDocument();
   });
 
   it('renders individual Edit buttons on each OAuth provider row in AppConfigPage', () => {

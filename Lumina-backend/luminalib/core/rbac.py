@@ -18,6 +18,9 @@ PERMISSIONS = {
     "voice_ai": "Use real-time voice assistant and voice actions",
     "settings_config": "Manage app configs, SMTP, and OAuth providers",
     "users_rbac": "Full administrative access to manage users and roles",
+    "quiz_manage": "Create/manage/grade quizzes & assign to groups (AI + manual)",
+    "quiz_attempt": "Attempt assigned quizzes and view own results",
+    "quiz_review": "Review own quiz submissions & explanations",
 }
 
 DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
@@ -29,12 +32,17 @@ DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "groups_manage",
         "qa_rag",
         "voice_ai",
+        "quiz_manage",
+        "quiz_attempt",
+        "quiz_review",
     ],
     "user": [
         "dashboard",
         "books_read",
         "qa_rag",
         "voice_ai",
+        "quiz_attempt",
+        "quiz_review",
     ],
 }
 

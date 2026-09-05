@@ -14,7 +14,12 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
+    const backendUrl = process.env.INTERNAL_API_URL || 'http://backend:8000/api/v1';
     return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendUrl}/:path*`
+      },
       {
         source: '/grafana/:path*',
         destination: 'http://grafana:3000/grafana/:path*'
@@ -22,6 +27,7 @@ const nextConfig = {
     ];
   }
 };
+
 
 export default nextConfig;
 
